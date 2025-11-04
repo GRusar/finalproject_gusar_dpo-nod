@@ -11,6 +11,14 @@ dependencies = [
     "prettytable (>=3.16.0,<4.0.0)"
 ]
 
+[project.scripts]
+project = "main:main"
+
+[tool.poetry]
+ packages = [
+     { include = "valutatrade_hub" },
+ ]
+
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
