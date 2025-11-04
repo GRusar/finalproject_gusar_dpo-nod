@@ -1,0 +1,30 @@
+[project]
+name = "finalproject-gusar-dpo-nod"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Roman G",email = "gusar.roman.a@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "prettytable (>=3.16.0,<4.0.0)"
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "ruff (>=0.14.3,<0.15.0)"
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+exclude = ["venv", ".venv", "dist", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = [] 
