@@ -56,7 +56,7 @@ def _load_exchange_rates() -> Dict[str, float]:
     return merged_rates
 
 
-def register_user(username: str, password: str) -> int:
+def register_user(username: str, password: str) -> dict[str, Any]:
     """
     Команда register:
     1. Проверить уникальность username в users.json.
@@ -98,10 +98,10 @@ def register_user(username: str, password: str) -> int:
     portfolios.append({"user_id": new_user_id, "wallets": {}})
     _save_json(PORTFOLIOS_FILE, portfolios)
 
-    return new_user_id
+    return {"user_id": new_user_id, "username": user.username}
 
 
-def login_user(username: str, password: str) -> int:
+def login_user(username: str, password: str) -> dict[str, Any]:
     """
     Команда login:
     1. Найти пользователя по username.
@@ -133,7 +133,7 @@ def login_user(username: str, password: str) -> int:
     if not user.verify_password(password):
         raise ValueError("Неверный пароль")
 
-    return user.user_id
+    return {"user_id": user.user_id, "username": user.username}
 
 
 def show_portfolio(user_id: int, base_currency: str = "USD") -> dict[str, Any]:

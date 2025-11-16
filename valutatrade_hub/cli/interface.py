@@ -1,62 +1,46 @@
-
 """Командный интерфейс ValutaTrade Hub."""
 
-from typing import Any
+import shlex
+from typing import Any, Sequence
 
+from valutatrade_hub.cli import constants
+from valutatrade_hub.cli.command_parser import build_parser
 from valutatrade_hub.core import usecases
 
 CURRENT_SESSION: dict[str, Any] = {"user_id": None, "username": None}
 
 
-def register_command(username: str, password: str) -> None:
-    """
-    Команда register:
-    * принимает обязательные --username и --password;
-    * проверяет уникальность имени, хеширует пароль, создаёт запись в users.json;
-    * создаёт пустой портфель и сообщает об успешной регистрации.
-    """
-    normalized_username = (username or "").strip()
+def register(username: str, password: str) -> None:
+    """Обработчик команды register."""
     try:
-        user_id = usecases.register_user(
-            username=normalized_username,
-            password=password,
-        )
+        result = usecases.register_user(username=username, password=password)
     except ValueError as error:
         print(error)
         return
 
+    user = result["username"]
+    user_id = result["user_id"]
     print(
-        f"Пользователь '{normalized_username}' зарегистрирован (id={user_id}). "
-        f"Войдите: login --username {normalized_username} --password ****",
+        f"Пользователь '{user}' зарегистрирован (id={user_id}). "
+        f"Войдите: login --username {user} --password ****",
     )
 
 
-def login_command(username: str, password: str) -> None:
-    """
-    Команда login:
-    * принимает --username и --password;
-    * ищет пользователя и проверяет пароль;
-    * фиксирует текущую сессию.
-    """
-    normalized_username = (username or "").strip()
+def login(username: str, password: str) -> None:
+    """Обработчик команды login."""
     try:
-        user_id = usecases.login_user(username=normalized_username, password=password)
+        result = usecases.login_user(username=username, password=password)
     except ValueError as error:
         print(error)
         return
 
-    CURRENT_SESSION["user_id"] = user_id
-    CURRENT_SESSION["username"] = normalized_username
-    print(f"Вы вошли как '{normalized_username}' (id={user_id})")
+    CURRENT_SESSION["user_id"] = result["user_id"]
+    CURRENT_SESSION["username"] = result["username"]
+    print(f"Вы вошли как '{result['username']}' (id={result['user_id']})")
 
 
-def show_portfolio_command(base_currency: str = "USD") -> None:
-    """
-    Команда show-portfolio:
-    * доступна только залогиненному пользователю;
-    * выводит все кошельки и стоимость в базовой валюте (по умолчанию USD);
-    * принимает опциональный --base.
-    """
+def show_portfolio(base_currency: str = "USD") -> None:
+    """Обработчик команды show-portfolio."""
     if not CURRENT_SESSION.get("user_id"):
         print("Сначала выполните login")
         return
@@ -91,13 +75,8 @@ def show_portfolio_command(base_currency: str = "USD") -> None:
     print(f"ИТОГО: {total:,.2f} {normalized_base}")
 
 
-def buy_command(currency_code: str, amount: float) -> None:
-    """
-    Команда buy:
-    * требует логина;
-    * проверяет --currency и положительный --amount;
-    * создаёт кошелёк при необходимости и увеличивает баланс.
-    """
+def buy(currency_code: str, amount: float) -> None:
+    """Обработчик команды buy."""
     if not CURRENT_SESSION.get("user_id"):
         print("Сначала выполните login")
         return
@@ -138,13 +117,8 @@ def buy_command(currency_code: str, amount: float) -> None:
         print(f"Оценочная стоимость покупки: {estimated_value:,.2f} USD")
 
 
-def sell_command(currency_code: str, amount: float) -> None:
-    """
-    Команда sell:
-    * требует логина;
-    * проверяет существование кошелька и достаточно ли средств;
-    * уменьшает баланс и может показывать оценочную выручку.
-    """
+def sell(currency_code: str, amount: float) -> None:
+    """Обработчик команды sell."""
     if not CURRENT_SESSION.get("user_id"):
         print("Сначала выполните login")
         return
@@ -185,13 +159,8 @@ def sell_command(currency_code: str, amount: float) -> None:
         print(f"Оценочная выручка: {estimated_value:,.2f} USD")
 
 
-def get_rate_command(from_code: str, to_code: str) -> None:
-    """
-    Команда get-rate:
-    * принимает --from и --to;
-    * проверяет коды валют и пытается взять курс из локального кеша;
-    * при необходимости обновляет данные и выводит курс + метку времени.
-    """
+def get_rate(from_code: str, to_code: str) -> None:
+    """Обработчик команды get-rate."""
     try:
         result = usecases.get_exchange_rate(from_code=from_code, to_code=to_code)
     except ValueError as error:
@@ -211,4 +180,75 @@ def get_rate_command(from_code: str, to_code: str) -> None:
     if inverse_rate:
         print(
             f"Обратный курс {normalized_to}→{normalized_from}: {inverse_rate:.8f}",
+        )
+
+
+def _dispatch_command(args) -> None:
+    """Вызвать функцию-обработчик в зависимости от команды."""
+    match args.command:
+        case "register":
+            register(args.username, args.password)
+        case "login":
+            login(args.username, args.password)
+        case "show-portfolio":
+            show_portfolio(args.base)
+        case "buy":
+            buy(args.currency, args.amount)
+        case "sell":
+            sell(args.currency, args.amount)
+        case "get-rate":
+            get_rate(args.from_code, args.to_code)
+        case _:
+            print(f"Неизвестная команда: {args.command}")
+
+
+def run_cli(argv: Sequence[str] | None = None) -> None:
+    """Запустить CLI в пакетном режиме или интерактивной оболочке."""
+    parser = build_parser()
+    if argv:
+        try:
+            parsed = parser.parse_args(argv)
+        except ValueError as error:
+            print(error)
+            return
+        _dispatch_command(parsed)
+        return
+
+    print("ValutaTrade Hub CLI.")
+    show_help()
+    while True:
+        try:
+            line = input("> ").strip()
+        except EOFError:
+            print()
+            break
+
+        if not line:
+            continue
+        if line.lower() in {"exit", "quit"}:
+            break
+
+        try:
+            tokens = shlex.split(line)
+        except ValueError as error:
+            print(f"Ошибка парсинга команды: {error}")
+            continue
+
+        if not tokens:
+            continue
+
+        try:
+            parsed = parser.parse_args(tokens)
+        except ValueError as error:
+            print(error)
+            continue
+
+        _dispatch_command(parsed)
+
+def show_help(commands: dict[str, str] = constants.COMMANDS) -> None:
+    """Выводит справку по доступным командам."""
+    print("\nДоступные команды:")
+    for command, description in commands.items():
+        print(
+            f"{command.ljust(constants.HELP_ALIGNMENT, ' ')}{description}"
         )
