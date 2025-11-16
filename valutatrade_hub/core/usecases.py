@@ -15,6 +15,7 @@ RATES_FILE = DATA_DIR / "rates.json"
 
 
 def _load_json(path: Path, default: Any) -> Any:
+    """Загрузка данных из json"""
     if not path.exists():
         return default
     with path.open("r", encoding="utf-8") as file:
@@ -25,13 +26,14 @@ def _load_json(path: Path, default: Any) -> Any:
 
 
 def _save_json(path: Path, data: Any) -> None:
+    """Простая запись данных в json."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as file:
         json.dump(data, file, ensure_ascii=False, indent=4)
 
 
 def _load_exchange_rates() -> Dict[str, float]:
-    """Вернуть словарь курсов валют в доллары США."""
+    """Подтягивает курсы валют из кеша и накладывает их на значения по умолчанию."""
     rates_data = _load_json(RATES_FILE, default={})
     merged_rates = dict(DEFAULT_EXCHANGE_RATES)
 
@@ -57,14 +59,7 @@ def _load_exchange_rates() -> Dict[str, float]:
 
 
 def register_user(username: str, password: str) -> dict[str, Any]:
-    """
-    Команда register:
-    1. Проверить уникальность username в users.json.
-    2. Сгенерировать user_id (автоинкремент).
-    3. Захешировать пароль с солью.
-    4. Сохранить пользователя и пустой портфель.
-    5. Вернуть сообщение об успехе.
-    """
+    """Функция регистрации."""
     normalized_username = (username or "").strip()
     if not normalized_username:
         raise ValueError("Имя пользователя не может быть пустым")
@@ -102,12 +97,7 @@ def register_user(username: str, password: str) -> dict[str, Any]:
 
 
 def login_user(username: str, password: str) -> dict[str, Any]:
-    """
-    Команда login:
-    1. Найти пользователя по username.
-    2. Сравнить хеш пароля.
-    3. Зафиксировать текущую сессию.
-    """
+    """Функция логина."""
     normalized_username = (username or "").strip()
     if not normalized_username:
         raise ValueError("Имя пользователя не может быть пустым")
@@ -137,12 +127,7 @@ def login_user(username: str, password: str) -> dict[str, Any]:
 
 
 def show_portfolio(user_id: int, base_currency: str = "USD") -> dict[str, Any]:
-    """
-    Команда show-portfolio:
-    1. Убедиться, что пользователь залогинен.
-    2. Загрузить портфель и вывести каждый кошелёк.
-    3. Рассчитать стоимость в base_currency и общую сумму.
-    """
+    """Возвращает состояние портфеля и пересчитывает суммы в базовую валюту."""
     normalized_base = (base_currency or "USD").strip().upper()
     portfolios = _load_json(PORTFOLIOS_FILE, default=[])
     if not isinstance(portfolios, list):
@@ -197,12 +182,7 @@ def show_portfolio(user_id: int, base_currency: str = "USD") -> dict[str, Any]:
 
 
 def buy_currency(user_id: int, currency_code: str, amount: float) -> dict[str, Any]:
-    """
-    Команда buy:
-    1. Проверить логин, код валюты и положительность amount.
-    2. Создать кошелёк при его отсутствии и увеличить баланс.
-    3. Опционально вывести расчётную стоимость покупки.
-    """
+    """Функция покупки валюты."""
     if user_id is None:
         raise ValueError("Не указан пользователь")
 
@@ -260,12 +240,7 @@ def buy_currency(user_id: int, currency_code: str, amount: float) -> dict[str, A
 
 
 def sell_currency(user_id: int, currency_code: str, amount: float) -> dict[str, Any]:
-    """
-    Команда sell:
-    1. Проверить логин и валидность данных.
-    2. Убедиться в наличии кошелька и достаточном балансе.
-    3. Уменьшить баланс и при необходимости отразить выручку.
-    """
+    """Функция продажи валюты."""
     if user_id is None:
         raise ValueError("Не указан пользователь")
 
@@ -322,12 +297,7 @@ def sell_currency(user_id: int, currency_code: str, amount: float) -> dict[str, 
 
 
 def get_exchange_rate(from_code: str, to_code: str) -> dict[str, Any]:
-    """
-    Команда get-rate:
-    1. Проверить код валюты (верхний регистр, не пустой).
-    2. Взять курс из rates.json или обновить через Parser Service.
-    3. Вернуть курс и метку времени.
-    """
+    """Функция получения курса обмена."""
     normalized_from = (from_code or "").strip().upper()
     normalized_to = (to_code or "").strip().upper()
 
