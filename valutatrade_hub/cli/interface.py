@@ -13,7 +13,12 @@ from valutatrade_hub.core.exceptions import (
 )
 
 CURRENT_SESSION: dict[str, Any] = {"user_id": None, "username": None}
-HANDLED_ERRORS = (ValueError, CurrencyNotFoundError, InsufficientFundsError, ApiRequestError)
+HANDLED_ERRORS = (
+    ValueError,
+    CurrencyNotFoundError,
+    InsufficientFundsError,
+    ApiRequestError,
+)
 
 
 def register(username: str, password: str) -> None:

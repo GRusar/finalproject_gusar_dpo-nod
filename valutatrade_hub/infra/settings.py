@@ -6,7 +6,6 @@ import tomllib
 from pathlib import Path
 from typing import Any, Dict
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
 
@@ -61,7 +60,8 @@ class SettingsLoader(metaclass=SingletonMeta):
         ]
         missing = [key for key in required_keys if key not in config]
         if missing:
-            raise RuntimeError(f"В конфигурации отсутствуют ключи: {', '.join(missing)}")
+            missing_str = ", ".join(missing)
+            raise RuntimeError(f"В конфигурации отсутствуют ключи: {missing_str}")
 
         self._config = config
 
