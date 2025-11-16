@@ -11,7 +11,17 @@ def register_command(username: str, password: str) -> None:
     * проверяет уникальность имени, хеширует пароль, создаёт запись в users.json;
     * создаёт пустой портфель и сообщает об успешной регистрации.
     """
-    pass
+    normalized_username = (username or "").strip()
+    try:
+        user_id = usecases.register_user(username=normalized_username, password=password)
+    except ValueError as error:
+        print(error)
+        return
+
+    print(
+        f"Пользователь '{normalized_username}' зарегистрирован (id={user_id}). "
+        f"Войдите: login --username {normalized_username} --password ****",
+    )
 
 
 def login_command(username: str, password: str) -> None:
