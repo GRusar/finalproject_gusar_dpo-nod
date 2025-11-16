@@ -1,7 +1,11 @@
 
 """Командный интерфейс ValutaTrade Hub."""
 
+from typing import Any
+
 from valutatrade_hub.core import usecases
+
+CURRENT_SESSION: dict[str, Any] = {"user_id": None, "username": None}
 
 
 def register_command(username: str, password: str) -> None:
@@ -38,6 +42,8 @@ def login_command(username: str, password: str) -> None:
         print(error)
         return
 
+    CURRENT_SESSION["user_id"] = user_id
+    CURRENT_SESSION["username"] = normalized_username
     print(f"Вы вошли как '{normalized_username}' (id={user_id})")
 
 
@@ -48,7 +54,38 @@ def show_portfolio_command(base_currency: str = "USD") -> None:
     * выводит все кошельки и стоимость в базовой валюте (по умолчанию USD);
     * принимает опциональный --base.
     """
-    pass
+    if not CURRENT_SESSION.get("user_id"):
+        print("Сначала выполните login")
+        return
+
+    try:
+        report = usecases.show_portfolio(
+            user_id=CURRENT_SESSION["user_id"],
+            base_currency=base_currency,
+        )
+    except ValueError as error:
+        print(error)
+        return
+
+    wallets = report["wallets"]
+    normalized_base = report["base_currency"]
+    total = report["total_in_base"]
+    username = CURRENT_SESSION.get("username") or "unknown"
+
+    if not wallets:
+        print(f"Портфель пользователя '{username}' пуст.")
+        return
+
+    print(f"Портфель пользователя '{username}' (база: {normalized_base}):")
+    for wallet in wallets:
+        currency = wallet["currency_code"]
+        balance = wallet["balance"]
+        value = wallet["value_in_base"]
+        print(
+            f"- {currency}: {balance:.4f}  → {value:,.2f} {normalized_base}",
+        )
+    print("---------------------------------")
+    print(f"ИТОГО: {total:,.2f} {normalized_base}")
 
 
 def buy_command(currency_code: str, amount: float) -> None:

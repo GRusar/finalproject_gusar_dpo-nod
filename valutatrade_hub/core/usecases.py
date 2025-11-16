@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
-from valutatrade_hub.core.models import User
+from valutatrade_hub.core.models import DEFAULT_EXCHANGE_RATES, User
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 USERS_FILE = DATA_DIR / "users.json"
 PORTFOLIOS_FILE = DATA_DIR / "portfolios.json"
+RATES_FILE = DATA_DIR / "rates.json"
 
 
 def _load_json(path: Path, default: Any) -> Any:
@@ -27,6 +28,32 @@ def _save_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as file:
         json.dump(data, file, ensure_ascii=False, indent=4)
+
+
+def _load_exchange_rates() -> Dict[str, float]:
+    """Вернуть словарь курсов валют в доллары США."""
+    rates_data = _load_json(RATES_FILE, default={})
+    merged_rates = dict(DEFAULT_EXCHANGE_RATES)
+
+    if isinstance(rates_data, dict):
+        for pair, info in rates_data.items():
+            if not isinstance(info, dict):
+                continue
+            if "_" not in pair or "rate" not in info:
+                continue
+            from_code, to_code = pair.split("_", 1)
+            from_code = from_code.upper()
+            to_code = to_code.upper()
+            try:
+                rate_value = float(info["rate"])
+            except (TypeError, ValueError):
+                continue
+            if to_code == "USD":
+                merged_rates[from_code] = rate_value
+            elif from_code == "USD" and rate_value != 0:
+                merged_rates[to_code] = 1 / rate_value
+
+    return merged_rates
 
 
 def register_user(username: str, password: str) -> int:
@@ -116,7 +143,57 @@ def show_portfolio(user_id: int, base_currency: str = "USD") -> dict[str, Any]:
     2. Загрузить портфель и вывести каждый кошелёк.
     3. Рассчитать стоимость в base_currency и общую сумму.
     """
-    raise NotImplementedError
+    normalized_base = (base_currency or "USD").strip().upper()
+    portfolios = _load_json(PORTFOLIOS_FILE, default=[])
+    if not isinstance(portfolios, list):
+        raise ValueError("Некорректный формат файла portfolios.json")
+
+    portfolio_record = next(
+        (portfolio for portfolio in portfolios if portfolio.get("user_id") == user_id),
+        None,
+    )
+    if portfolio_record is None:
+        raise ValueError("Портфель пользователя не найден")
+
+    wallets_data = portfolio_record.get("wallets", {})
+    if not isinstance(wallets_data, dict):
+        raise ValueError("Некорректный формат кошельков")
+
+    exchange_rates = _load_exchange_rates()
+    if normalized_base not in exchange_rates:
+        raise ValueError(f"Неизвестная базовая валюта '{normalized_base}'")
+
+    base_rate_usd = exchange_rates[normalized_base]
+    wallets_info: list[dict[str, float | str]] = []
+    total_in_base = 0.0
+
+    for code, wallet_info in wallets_data.items():
+        currency_code = (code or "").strip().upper()
+        if not currency_code:
+            continue
+        balance = float(wallet_info.get("balance", 0.0))
+        rate_to_usd = exchange_rates.get(currency_code)
+        if rate_to_usd is None:
+            raise ValueError(f"Нет курса для валюты '{currency_code}'")
+
+        value_in_base = balance * rate_to_usd
+        if normalized_base != "USD" and base_rate_usd != 0:
+            value_in_base /= base_rate_usd
+
+        wallets_info.append(
+            {
+                "currency_code": currency_code,
+                "balance": balance,
+                "value_in_base": value_in_base,
+            },
+        )
+        total_in_base += value_in_base
+
+    return {
+        "wallets": wallets_info,
+        "base_currency": normalized_base,
+        "total_in_base": total_in_base,
+    }
 
 
 def buy_currency(user_id: int, currency_code: str, amount: float) -> None:
