@@ -31,7 +31,14 @@ def login_command(username: str, password: str) -> None:
     * ищет пользователя и проверяет пароль;
     * фиксирует текущую сессию.
     """
-    pass
+    normalized_username = (username or "").strip()
+    try:
+        user_id = usecases.login_user(username=normalized_username, password=password)
+    except ValueError as error:
+        print(error)
+        return
+
+    print(f"Вы вошли как '{normalized_username}' (id={user_id})")
 
 
 def show_portfolio_command(base_currency: str = "USD") -> None:

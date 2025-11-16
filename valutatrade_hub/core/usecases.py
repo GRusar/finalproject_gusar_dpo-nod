@@ -74,24 +74,49 @@ def register_user(username: str, password: str) -> int:
     return new_user_id
 
 
-def login_user(username: str, password: str) -> None:
+def login_user(username: str, password: str) -> int:
     """
     Команда login:
     1. Найти пользователя по username.
     2. Сравнить хеш пароля.
     3. Зафиксировать текущую сессию.
     """
-    pass
+    normalized_username = (username or "").strip()
+    if not normalized_username:
+        raise ValueError("Имя пользователя не может быть пустым")
+
+    users_data = _load_json(USERS_FILE, default=[])
+    if not isinstance(users_data, list):
+        raise ValueError("Некорректный формат файла users.json")
+
+    user_record = next(
+        (user for user in users_data if user.get("username") == normalized_username),
+        None,
+    )
+    if user_record is None:
+        raise ValueError(f"Пользователь '{normalized_username}' не найден")
+
+    user = User(
+        user_id=user_record["user_id"],
+        username=user_record["username"],
+        hashed_password=user_record["hashed_password"],
+        salt=user_record["salt"],
+        registration_date=user_record["registration_date"],
+    )
+    if not user.verify_password(password):
+        raise ValueError("Неверный пароль")
+
+    return user.user_id
 
 
-def show_portfolio(user_id: int, base_currency: str = "USD") -> None:
+def show_portfolio(user_id: int, base_currency: str = "USD") -> dict[str, Any]:
     """
     Команда show-portfolio:
     1. Убедиться, что пользователь залогинен.
     2. Загрузить портфель и вывести каждый кошелёк.
     3. Рассчитать стоимость в base_currency и общую сумму.
     """
-    pass
+    raise NotImplementedError
 
 
 def buy_currency(user_id: int, currency_code: str, amount: float) -> None:
