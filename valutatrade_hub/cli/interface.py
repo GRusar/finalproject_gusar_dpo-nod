@@ -95,7 +95,42 @@ def buy_command(currency_code: str, amount: float) -> None:
     * проверяет --currency и положительный --amount;
     * создаёт кошелёк при необходимости и увеличивает баланс.
     """
-    pass
+    if not CURRENT_SESSION.get("user_id"):
+        print("Сначала выполните login")
+        return
+
+    try:
+        result = usecases.buy_currency(
+            user_id=CURRENT_SESSION["user_id"],
+            currency_code=currency_code,
+            amount=amount,
+        )
+    except ValueError as error:
+        print(error)
+        return
+
+    code = result["currency_code"]
+    purchase_amount = result["amount"]
+    previous = result["previous_balance"]
+    new_balance = result["new_balance"]
+    rate = result["rate_to_usd"]
+    estimated_value = result["estimated_value_usd"]
+
+    if rate is not None:
+        print(
+            f"Покупка выполнена: {purchase_amount:.4f} {code} "
+            f"по курсу {rate:,.2f} USD/{code}",
+        )
+    else:
+        print(
+            f"Покупка выполнена: {purchase_amount:.4f} {code}. "
+            "Курс недоступен.",
+        )
+    print(
+        f"Изменения в портфеле:\n- {code}: было {previous:.4f} → стало {new_balance:.4f}",
+    )
+    if estimated_value is not None:
+        print(f"Оценочная стоимость покупки: {estimated_value:,.2f} USD")
 
 
 def sell_command(currency_code: str, amount: float) -> None:
