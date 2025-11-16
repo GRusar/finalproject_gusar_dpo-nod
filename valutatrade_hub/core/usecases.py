@@ -2,43 +2,21 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any, Dict, Optional
 
 from valutatrade_hub.core.currencies import get_currency
-from valutatrade_hub.core.exceptions import (
-    InsufficientFundsError,
-)
+from valutatrade_hub.core.exceptions import CurrencyNotFoundError, InsufficientFundsError
 from valutatrade_hub.core.models import DEFAULT_EXCHANGE_RATES, User
+from valutatrade_hub.infra.database import DatabaseManager
+from valutatrade_hub.infra.settings import SettingsLoader
 
-DATA_DIR = Path(__file__).resolve().parents[2] / "data"
-USERS_FILE = DATA_DIR / "users.json"
-PORTFOLIOS_FILE = DATA_DIR / "portfolios.json"
-RATES_FILE = DATA_DIR / "rates.json"
-
-
-def _load_json(path: Path, default: Any) -> Any:
-    """Загрузка данных из json"""
-    if not path.exists():
-        return default
-    with path.open("r", encoding="utf-8") as file:
-        try:
-            return json.load(file)
-        except json.JSONDecodeError:
-            return default
-
-
-def _save_json(path: Path, data: Any) -> None:
-    """Простая запись данных в json."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as file:
-        json.dump(data, file, ensure_ascii=False, indent=4)
+settings = SettingsLoader()
+db_manager = DatabaseManager()
 
 
 def _load_exchange_rates() -> Dict[str, float]:
     """Подтягивает курсы валют из кеша и накладывает их на значения по умолчанию."""
-    rates_data = _load_json(RATES_FILE, default={})
+    rates_data = db_manager.read("rates", default={})
     merged_rates = dict(DEFAULT_EXCHANGE_RATES)
 
     if isinstance(rates_data, dict):
@@ -70,7 +48,7 @@ def register_user(username: str, password: str) -> dict[str, Any]:
     if len(password or "") < 4:
         raise ValueError("Пароль должен быть не короче 4 символов")
 
-    users_data = _load_json(USERS_FILE, default=[])
+    users_data = db_manager.read("users", default=[])
     if not isinstance(users_data, list):
         raise ValueError("Некорректный формат файла users.json")
     if any(user.get("username") == normalized_username for user in users_data):
@@ -89,13 +67,13 @@ def register_user(username: str, password: str) -> dict[str, Any]:
             "registration_date": user.registration_date.isoformat(),
         },
     )
-    _save_json(USERS_FILE, users_data)
+    db_manager.write("users", users_data)
 
-    portfolios = _load_json(PORTFOLIOS_FILE, default=[])
+    portfolios = db_manager.read("portfolios", default=[])
     if not isinstance(portfolios, list):
         raise ValueError("Некорректный формат файла portfolios.json")
     portfolios.append({"user_id": new_user_id, "wallets": {}})
-    _save_json(PORTFOLIOS_FILE, portfolios)
+    db_manager.write("portfolios", portfolios)
 
     return {"user_id": new_user_id, "username": user.username}
 
@@ -106,7 +84,7 @@ def login_user(username: str, password: str) -> dict[str, Any]:
     if not normalized_username:
         raise ValueError("Имя пользователя не может быть пустым")
 
-    users_data = _load_json(USERS_FILE, default=[])
+    users_data = db_manager.read("users", default=[])
     if not isinstance(users_data, list):
         raise ValueError("Некорректный формат файла users.json")
 
@@ -132,8 +110,9 @@ def login_user(username: str, password: str) -> dict[str, Any]:
 
 def show_portfolio(user_id: int, base_currency: str = "USD") -> dict[str, Any]:
     """Возвращает состояние портфеля и пересчитывает суммы в базовую валюту."""
-    normalized_base = (base_currency or "USD").strip().upper()
-    portfolios = _load_json(PORTFOLIOS_FILE, default=[])
+    default_base = settings.get("DEFAULT_BASE_CURRENCY", "USD")
+    normalized_base = (base_currency or default_base).strip().upper()
+    portfolios = db_manager.read("portfolios", default=[])
     if not isinstance(portfolios, list):
         raise ValueError("Некорректный формат файла portfolios.json")
 
@@ -200,7 +179,7 @@ def buy_currency(user_id: int, currency_code: str, amount: float) -> dict[str, A
     currency = get_currency(currency_code)
     normalized_code = currency.code
 
-    portfolios = _load_json(PORTFOLIOS_FILE, default=[])
+    portfolios = db_manager.read("portfolios", default=[])
     if not isinstance(portfolios, list):
         raise ValueError("Некорректный формат файла portfolios.json")
 
@@ -226,7 +205,7 @@ def buy_currency(user_id: int, currency_code: str, amount: float) -> dict[str, A
     wallet["currency_code"] = normalized_code
     wallet["balance"] = new_balance
 
-    _save_json(PORTFOLIOS_FILE, portfolios)
+    db_manager.write("portfolios", portfolios)
 
     exchange_rates = _load_exchange_rates()
     rate_to_usd = exchange_rates.get(normalized_code)
@@ -257,7 +236,7 @@ def sell_currency(user_id: int, currency_code: str, amount: float) -> dict[str, 
     currency = get_currency(currency_code)
     normalized_code = currency.code
 
-    portfolios = _load_json(PORTFOLIOS_FILE, default=[])
+    portfolios = db_manager.read("portfolios", default=[])
     if not isinstance(portfolios, list):
         raise ValueError("Некорректный формат файла portfolios.json")
 
@@ -283,7 +262,7 @@ def sell_currency(user_id: int, currency_code: str, amount: float) -> dict[str, 
 
     new_balance = previous_balance - amount_value
     wallet["balance"] = new_balance
-    _save_json(PORTFOLIOS_FILE, portfolios)
+    db_manager.write("portfolios", portfolios)
 
     exchange_rates = _load_exchange_rates()
     rate_to_usd = exchange_rates.get(normalized_code)
@@ -315,7 +294,7 @@ def get_exchange_rate(from_code: str, to_code: str) -> dict[str, Any]:
             "inverse_rate": 1.0,
         }
 
-    rates_data = _load_json(RATES_FILE, default={})
+    rates_data = db_manager.read("rates", default={})
     if rates_data is None:
         rates_data = {}
     if not isinstance(rates_data, dict):
