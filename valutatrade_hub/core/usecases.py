@@ -321,11 +321,86 @@ def sell_currency(user_id: int, currency_code: str, amount: float) -> dict[str, 
     }
 
 
-def get_exchange_rate(from_code: str, to_code: str) -> Optional[float]:
+def get_exchange_rate(from_code: str, to_code: str) -> dict[str, Any]:
     """
     Команда get-rate:
     1. Проверить код валюты (верхний регистр, не пустой).
     2. Взять курс из rates.json или обновить через Parser Service.
     3. Вернуть курс и метку времени.
     """
-    pass
+    normalized_from = (from_code or "").strip().upper()
+    normalized_to = (to_code or "").strip().upper()
+
+    if not normalized_from or not normalized_to:
+        raise ValueError("Коды валют должны быть непустыми строками")
+    if normalized_from == normalized_to:
+        return {
+            "from_code": normalized_from,
+            "to_code": normalized_to,
+            "rate": 1.0,
+            "updated_at": None,
+            "inverse_rate": 1.0,
+        }
+
+    rates_data = _load_json(RATES_FILE, default={})
+    if rates_data is None:
+        rates_data = {}
+    if not isinstance(rates_data, dict):
+        raise ValueError("Некорректный формат файла rates.json")
+
+    def _extract_pair(pair_from: str, pair_to: str) -> Optional[dict[str, Any]]:
+        key = f"{pair_from}_{pair_to}"
+        entry = rates_data.get(key)
+        if not isinstance(entry, dict):
+            return None
+        if "rate" not in entry:
+            return None
+        try:
+            rate_value = float(entry["rate"])
+        except (TypeError, ValueError):
+            return None
+        updated_at = entry.get("updated_at") or rates_data.get("last_refresh")
+        return {
+            "from_code": pair_from,
+            "to_code": pair_to,
+            "rate": rate_value,
+            "updated_at": updated_at,
+            "inverse_rate": None if rate_value == 0 else 1 / rate_value,
+        }
+
+    direct = _extract_pair(normalized_from, normalized_to)
+    if direct:
+        return direct
+
+    inverse = _extract_pair(normalized_to, normalized_from)
+    if inverse and inverse["rate"]:
+        rate_value = 1 / inverse["rate"]
+        return {
+            "from_code": normalized_from,
+            "to_code": normalized_to,
+            "rate": rate_value,
+            "updated_at": inverse["updated_at"],
+            "inverse_rate": inverse["rate"],
+        }
+
+    exchange_rates = _load_exchange_rates()
+    if normalized_from not in exchange_rates:
+        raise ValueError(f"Не удалось получить курс для {normalized_from}")
+    if normalized_to not in exchange_rates:
+        raise ValueError(f"Не удалось получить курс для {normalized_to}")
+
+    from_to_usd = exchange_rates[normalized_from]
+    to_to_usd = exchange_rates[normalized_to]
+    if to_to_usd == 0:
+        raise ValueError(f"Некорректный курс для валюты {normalized_to}")
+
+    rate_value = from_to_usd / to_to_usd
+    updated_at = rates_data.get("last_refresh")
+
+    return {
+        "from_code": normalized_from,
+        "to_code": normalized_to,
+        "rate": rate_value,
+        "updated_at": updated_at,
+        "inverse_rate": None if rate_value == 0 else 1 / rate_value,
+    }

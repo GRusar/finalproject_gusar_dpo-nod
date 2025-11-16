@@ -185,4 +185,23 @@ def get_rate_command(from_code: str, to_code: str) -> None:
     * проверяет коды валют и пытается взять курс из локального кеша;
     * при необходимости обновляет данные и выводит курс + метку времени.
     """
-    pass
+    try:
+        result = usecases.get_exchange_rate(from_code=from_code, to_code=to_code)
+    except ValueError as error:
+        print(error)
+        return
+
+    rate = result["rate"]
+    updated = result.get("updated_at") or "неизвестно"
+    normalized_from = result["from_code"]
+    normalized_to = result["to_code"]
+    inverse_rate = result.get("inverse_rate")
+
+    print(
+        f"Курс {normalized_from}→{normalized_to}: {rate:.8f} "
+        f"(обновлено: {updated})",
+    )
+    if inverse_rate:
+        print(
+            f"Обратный курс {normalized_to}→{normalized_from}: {inverse_rate:.8f}",
+        )
