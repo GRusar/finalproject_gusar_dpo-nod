@@ -7,7 +7,9 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from valutatrade_hub.core.currencies import get_currency
-from valutatrade_hub.core.exceptions import CurrencyNotFoundError, InsufficientFundsError
+from valutatrade_hub.core.exceptions import (
+    InsufficientFundsError,
+)
 from valutatrade_hub.core.models import DEFAULT_EXCHANGE_RATES, User
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
