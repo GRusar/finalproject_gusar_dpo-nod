@@ -5,8 +5,12 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from valutatrade_hub.core.currencies import get_currency
-from valutatrade_hub.core.exceptions import InsufficientFundsError
+from valutatrade_hub.core.exceptions import (
+    CurrencyNotFoundError,
+    InsufficientFundsError,
+)
 from valutatrade_hub.core.models import DEFAULT_EXCHANGE_RATES, User
+from valutatrade_hub.decorators import log_action
 from valutatrade_hub.infra.database import DatabaseManager
 from valutatrade_hub.infra.settings import SettingsLoader
 
