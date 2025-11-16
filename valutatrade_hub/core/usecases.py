@@ -5,10 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from valutatrade_hub.core.currencies import get_currency
-from valutatrade_hub.core.exceptions import (
-    CurrencyNotFoundError,
-    InsufficientFundsError,
-)
+from valutatrade_hub.core.exceptions import InsufficientFundsError
 from valutatrade_hub.core.models import DEFAULT_EXCHANGE_RATES, User
 from valutatrade_hub.decorators import log_action
 from valutatrade_hub.infra.database import DatabaseManager
@@ -16,6 +13,41 @@ from valutatrade_hub.infra.settings import SettingsLoader
 
 settings = SettingsLoader()
 db_manager = DatabaseManager()
+
+
+def _extract_value(args: tuple, kwargs: dict, key: str, index: int) -> Any:
+    """Возвращает значение аргумента из kwargs или args."""
+    if key in kwargs:
+        return kwargs[key]
+    if len(args) > index:
+        return args[index]
+    return None
+
+
+def _build_trade_context(
+    args: tuple,
+    kwargs: dict,
+    result: Optional[dict[str, Any]],
+    verbose: bool,
+) -> dict[str, Any]:
+    """Формирует контекст лога для торговых операций (buy/sell)."""
+    context: dict[str, Any] = {
+        "user_id": _extract_value(args, kwargs, "user_id", 0),
+        "currency": _extract_value(args, kwargs, "currency_code", 1),
+        "amount": _extract_value(args, kwargs, "amount", 2),
+        "base": settings.get("DEFAULT_BASE_CURRENCY", "USD"),
+    }
+    if result:
+        context["currency"] = result.get("currency_code", context["currency"])
+        rate = result.get("rate_to_usd")
+        if rate is not None:
+            context["rate"] = rate
+        if verbose:
+            context["balance_before"] = result.get("previous_balance")
+            context["balance_after"] = result.get("new_balance")
+            if result.get("estimated_value_usd") is not None:
+                context["estimated_usd"] = result["estimated_value_usd"]
+    return {k: v for k, v in context.items() if v is not None}
 
 
 def _load_exchange_rates() -> Dict[str, float]:
@@ -168,6 +200,7 @@ def show_portfolio(user_id: int, base_currency: str = "USD") -> dict[str, Any]:
     }
 
 
+@log_action(action="BUY", context_getter=_build_trade_context, verbose=True)
 def buy_currency(user_id: int, currency_code: str, amount: float) -> dict[str, Any]:
     """Функция покупки валюты."""
     if user_id is None:
@@ -225,6 +258,7 @@ def buy_currency(user_id: int, currency_code: str, amount: float) -> dict[str, A
     }
 
 
+@log_action(action="SELL", context_getter=_build_trade_context, verbose=True)
 def sell_currency(user_id: int, currency_code: str, amount: float) -> dict[str, Any]:
     """Функция продажи валюты."""
     if user_id is None:

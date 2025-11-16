@@ -1,8 +1,8 @@
 """Декораторы ValutaTrade Hub."""
 
-__all__ = ["log_action", "ContextBuilder"]
-
 from __future__ import annotations
+
+__all__ = ["log_action", "ContextBuilder"]
 
 from datetime import datetime, timezone
 from functools import wraps
