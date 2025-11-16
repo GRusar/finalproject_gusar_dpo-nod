@@ -17,7 +17,10 @@ def register_command(username: str, password: str) -> None:
     """
     normalized_username = (username or "").strip()
     try:
-        user_id = usecases.register_user(username=normalized_username, password=password)
+        user_id = usecases.register_user(
+            username=normalized_username,
+            password=password,
+        )
     except ValueError as error:
         print(error)
         return
@@ -126,9 +129,11 @@ def buy_command(currency_code: str, amount: float) -> None:
             f"Покупка выполнена: {purchase_amount:.4f} {code}. "
             "Курс недоступен.",
         )
-    print(
-        f"Изменения в портфеле:\n- {code}: было {previous:.4f} → стало {new_balance:.4f}",
+    changes_line = (
+        f"Изменения в портфеле:\n- {code}: было {previous:.4f} → "
+        f"стало {new_balance:.4f}"
     )
+    print(changes_line)
     if estimated_value is not None:
         print(f"Оценочная стоимость покупки: {estimated_value:,.2f} USD")
 
@@ -171,9 +176,11 @@ def sell_command(currency_code: str, amount: float) -> None:
             f"Продажа выполнена: {sell_amount:.4f} {code}. "
             "Курс недоступен.",
         )
-    print(
-        f"Изменения в портфеле:\n- {code}: было {previous:.4f} → стало {new_balance:.4f}",
+    changes_line = (
+        f"Изменения в портфеле:\n- {code}: было {previous:.4f} → "
+        f"стало {new_balance:.4f}"
     )
+    print(changes_line)
     if estimated_value is not None:
         print(f"Оценочная выручка: {estimated_value:,.2f} USD")
 
