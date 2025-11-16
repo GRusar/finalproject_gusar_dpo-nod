@@ -5,6 +5,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Dict
 
+from valutatrade_hub.core.exceptions import CurrencyNotFoundError
+
 
 class Currency(ABC):
     """Базовый класс валюты."""
@@ -88,11 +90,11 @@ CURRENCY_REGISTRY: Dict[str, Currency] = {
 
 
 def get_currency(code: str) -> Currency:
-    """Возвращает валюту из реестра по коду или бросает ValueError."""
+    """Возвращает валюту из реестра или вызывает CurrencyNotFoundError."""
     normalized = (code or "").strip().upper()
     if not normalized:
-        raise ValueError("Код валюты должен быть непустой строкой")
+        raise CurrencyNotFoundError("")
     try:
         return CURRENCY_REGISTRY[normalized]
     except KeyError as exc:
-        raise ValueError(f"Неизвестная валюта '{normalized}'") from exc
+        raise CurrencyNotFoundError(normalized) from exc

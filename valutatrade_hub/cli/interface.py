@@ -6,15 +6,21 @@ from typing import Any, Sequence
 from valutatrade_hub.cli import constants
 from valutatrade_hub.cli.command_parser import build_parser
 from valutatrade_hub.core import usecases
+from valutatrade_hub.core.exceptions import (
+    ApiRequestError,
+    CurrencyNotFoundError,
+    InsufficientFundsError,
+)
 
 CURRENT_SESSION: dict[str, Any] = {"user_id": None, "username": None}
+HANDLED_ERRORS = (ValueError, CurrencyNotFoundError, InsufficientFundsError, ApiRequestError)
 
 
 def register(username: str, password: str) -> None:
     """Обработчик команды register."""
     try:
         result = usecases.register_user(username=username, password=password)
-    except ValueError as error:
+    except HANDLED_ERRORS as error:
         print(error)
         return
 
@@ -30,7 +36,7 @@ def login(username: str, password: str) -> None:
     """Обработчик команды login."""
     try:
         result = usecases.login_user(username=username, password=password)
-    except ValueError as error:
+    except HANDLED_ERRORS as error:
         print(error)
         return
 
@@ -50,7 +56,7 @@ def show_portfolio(base_currency: str = "USD") -> None:
             user_id=CURRENT_SESSION["user_id"],
             base_currency=base_currency,
         )
-    except ValueError as error:
+    except HANDLED_ERRORS as error:
         print(error)
         return
 
@@ -87,7 +93,7 @@ def buy(currency_code: str, amount: float) -> None:
             currency_code=currency_code,
             amount=amount,
         )
-    except ValueError as error:
+    except HANDLED_ERRORS as error:
         print(error)
         return
 
@@ -129,7 +135,7 @@ def sell(currency_code: str, amount: float) -> None:
             currency_code=currency_code,
             amount=amount,
         )
-    except ValueError as error:
+    except HANDLED_ERRORS as error:
         print(error)
         return
 
@@ -163,7 +169,7 @@ def get_rate(from_code: str, to_code: str) -> None:
     """Обработчик команды get-rate."""
     try:
         result = usecases.get_exchange_rate(from_code=from_code, to_code=to_code)
-    except ValueError as error:
+    except HANDLED_ERRORS as error:
         print(error)
         return
 

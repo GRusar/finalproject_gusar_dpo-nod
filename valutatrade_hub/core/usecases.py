@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from valutatrade_hub.core.currencies import get_currency
+from valutatrade_hub.core.exceptions import CurrencyNotFoundError, InsufficientFundsError
 from valutatrade_hub.core.models import DEFAULT_EXCHANGE_RATES, User
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
@@ -193,9 +195,8 @@ def buy_currency(user_id: int, currency_code: str, amount: float) -> dict[str, A
     if amount_value <= 0:
         raise ValueError("'amount' должен быть положительным числом")
 
-    normalized_code = (currency_code or "").strip().upper()
-    if not normalized_code:
-        raise ValueError("Код валюты должен быть непустой строкой")
+    currency = get_currency(currency_code)
+    normalized_code = currency.code
 
     portfolios = _load_json(PORTFOLIOS_FILE, default=[])
     if not isinstance(portfolios, list):
@@ -251,9 +252,8 @@ def sell_currency(user_id: int, currency_code: str, amount: float) -> dict[str, 
     if amount_value <= 0:
         raise ValueError("'amount' должен быть положительным числом")
 
-    normalized_code = (currency_code or "").strip().upper()
-    if not normalized_code:
-        raise ValueError("Код валюты должен быть непустой строкой")
+    currency = get_currency(currency_code)
+    normalized_code = currency.code
 
     portfolios = _load_json(PORTFOLIOS_FILE, default=[])
     if not isinstance(portfolios, list):
@@ -273,9 +273,10 @@ def sell_currency(user_id: int, currency_code: str, amount: float) -> dict[str, 
     wallet = wallets[normalized_code]
     previous_balance = float(wallet.get("balance", 0.0))
     if amount_value > previous_balance:
-        raise ValueError(
-            f"Недостаточно средств: доступно {previous_balance:.4f} "
-            f"{normalized_code}, требуется {amount_value:.4f} {normalized_code}",
+        raise InsufficientFundsError(
+            available=previous_balance,
+            required=amount_value,
+            code=normalized_code,
         )
 
     new_balance = previous_balance - amount_value
@@ -298,11 +299,11 @@ def sell_currency(user_id: int, currency_code: str, amount: float) -> dict[str, 
 
 def get_exchange_rate(from_code: str, to_code: str) -> dict[str, Any]:
     """Функция получения курса обмена."""
-    normalized_from = (from_code or "").strip().upper()
-    normalized_to = (to_code or "").strip().upper()
+    from_currency = get_currency(from_code)
+    to_currency = get_currency(to_code)
+    normalized_from = from_currency.code
+    normalized_to = to_currency.code
 
-    if not normalized_from or not normalized_to:
-        raise ValueError("Коды валют должны быть непустыми строками")
     if normalized_from == normalized_to:
         return {
             "from_code": normalized_from,
