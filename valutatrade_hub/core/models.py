@@ -6,7 +6,6 @@ from hashlib import sha256
 from os import urandom
 from typing import Dict, Optional
 
-
 DEFAULT_EXCHANGE_RATES: Dict[str, float] = {
     "USD": 1.0,
     "EUR": 1.08,

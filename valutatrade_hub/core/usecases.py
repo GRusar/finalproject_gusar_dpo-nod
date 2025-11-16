@@ -259,14 +259,66 @@ def buy_currency(user_id: int, currency_code: str, amount: float) -> dict[str, A
     }
 
 
-def sell_currency(user_id: int, currency_code: str, amount: float) -> None:
+def sell_currency(user_id: int, currency_code: str, amount: float) -> dict[str, Any]:
     """
     Команда sell:
     1. Проверить логин и валидность данных.
     2. Убедиться в наличии кошелька и достаточном балансе.
     3. Уменьшить баланс и при необходимости отразить выручку.
     """
-    pass
+    if user_id is None:
+        raise ValueError("Не указан пользователь")
+
+    try:
+        amount_value = float(amount)
+    except (TypeError, ValueError):
+        raise ValueError("'amount' должен быть положительным числом") from None
+    if amount_value <= 0:
+        raise ValueError("'amount' должен быть положительным числом")
+
+    normalized_code = (currency_code or "").strip().upper()
+    if not normalized_code:
+        raise ValueError("Код валюты должен быть непустой строкой")
+
+    portfolios = _load_json(PORTFOLIOS_FILE, default=[])
+    if not isinstance(portfolios, list):
+        raise ValueError("Некорректный формат файла portfolios.json")
+
+    portfolio = next(
+        (item for item in portfolios if item.get("user_id") == user_id),
+        None,
+    )
+    if portfolio is None:
+        raise ValueError("Портфель пользователя не найден")
+
+    wallets = portfolio.get("wallets")
+    if not isinstance(wallets, dict) or normalized_code not in wallets:
+        raise ValueError(f"У вас нет кошелька '{normalized_code}'. Добавьте валюту.")
+
+    wallet = wallets[normalized_code]
+    previous_balance = float(wallet.get("balance", 0.0))
+    if amount_value > previous_balance:
+        raise ValueError(
+            f"Недостаточно средств: доступно {previous_balance:.4f} "
+            f"{normalized_code}, требуется {amount_value:.4f} {normalized_code}",
+        )
+
+    new_balance = previous_balance - amount_value
+    wallet["balance"] = new_balance
+    _save_json(PORTFOLIOS_FILE, portfolios)
+
+    exchange_rates = _load_exchange_rates()
+    rate_to_usd = exchange_rates.get(normalized_code)
+    estimated_value = amount_value * rate_to_usd if rate_to_usd is not None else None
+
+    return {
+        "currency_code": normalized_code,
+        "amount": amount_value,
+        "previous_balance": previous_balance,
+        "new_balance": new_balance,
+        "rate_to_usd": rate_to_usd,
+        "estimated_value_usd": estimated_value,
+    }
 
 
 def get_exchange_rate(from_code: str, to_code: str) -> Optional[float]:

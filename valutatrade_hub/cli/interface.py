@@ -140,7 +140,42 @@ def sell_command(currency_code: str, amount: float) -> None:
     * проверяет существование кошелька и достаточно ли средств;
     * уменьшает баланс и может показывать оценочную выручку.
     """
-    pass
+    if not CURRENT_SESSION.get("user_id"):
+        print("Сначала выполните login")
+        return
+
+    try:
+        result = usecases.sell_currency(
+            user_id=CURRENT_SESSION["user_id"],
+            currency_code=currency_code,
+            amount=amount,
+        )
+    except ValueError as error:
+        print(error)
+        return
+
+    code = result["currency_code"]
+    sell_amount = result["amount"]
+    previous = result["previous_balance"]
+    new_balance = result["new_balance"]
+    rate = result["rate_to_usd"]
+    estimated_value = result["estimated_value_usd"]
+
+    if rate is not None:
+        print(
+            f"Продажа выполнена: {sell_amount:.4f} {code} "
+            f"по курсу {rate:,.2f} USD/{code}",
+        )
+    else:
+        print(
+            f"Продажа выполнена: {sell_amount:.4f} {code}. "
+            "Курс недоступен.",
+        )
+    print(
+        f"Изменения в портфеле:\n- {code}: было {previous:.4f} → стало {new_balance:.4f}",
+    )
+    if estimated_value is not None:
+        print(f"Оценочная выручка: {estimated_value:,.2f} USD")
 
 
 def get_rate_command(from_code: str, to_code: str) -> None:
