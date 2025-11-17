@@ -56,14 +56,18 @@ class ParserConfig:
     # Сетевые параметры
     REQUEST_TIMEOUT: int = 10
 
-    def get_exchange_api_key(self) -> str:
-        """Возвращает API-ключ, загружая его при необходимости."""
+    def _load_exchange_api_key(self) -> str:
+        """Загружает и кэширует API-ключ ExchangeRate-API."""
         if self.EXCHANGERATE_API_KEY:
             return self.EXCHANGERATE_API_KEY
-
         api_key = _get_api_key()
         self.EXCHANGERATE_API_KEY = api_key
         return api_key
+
+    @property
+    def exchange_api_key(self) -> str:
+        """Возвращает API-ключ, загружая его при первом обращении."""
+        return self._load_exchange_api_key()
 
 
 parser_config = ParserConfig()

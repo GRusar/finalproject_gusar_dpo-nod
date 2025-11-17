@@ -12,6 +12,7 @@ from valutatrade_hub.core.exceptions import (
     CurrencyNotFoundError,
     InsufficientFundsError,
 )
+from valutatrade_hub.infra.settings import SettingsLoader
 from valutatrade_hub.parser_service.api_clients import (
     coin_gecko_client,
     exchange_rate_client,
@@ -45,6 +46,7 @@ def _print_error(error: Exception) -> None:
 
 
 def update_rates_command(source: str | None) -> None:
+    settings = SettingsLoader()
     client_map = {
         "coingecko": coin_gecko_client,
         "exchangerate": exchange_rate_client,
@@ -70,7 +72,7 @@ def update_rates_command(source: str | None) -> None:
         print("Обновление выполнено с ошибками. См. логи.")
         for message in result["errors"]:
             print(f"- {message}")
-        print(f"Лог: {parser_config.PARSER_LOG_PATH}")
+        print(f"Лог: {settings.get('PARSER_LOG_PATH')}")
     else:
         print("Обновление курсов выполнено успешно.")
     print(

@@ -53,9 +53,9 @@ class RatesUpdater:
                 ),
             )
             if sources and source_name not in sources:
-                logger.error("No sources and source_name in sources")
+                logger.info("Пропускаем источник %s (не выбран)", source_name)
                 continue
-            logger.info(f"Fetching from {source_name}...")
+            logger.info("Fetching from %s...", source_name)
             try:
                 rates = client.fetch_rates()
             except ApiRequestError as error:
