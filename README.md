@@ -106,34 +106,39 @@ $ poetry run project get-rate --from BTC --to EUR
 - `VALUTATRADE_RATES_FILE`
 - `VALUTATRADE_RATES_TTL_SECONDS` (число секунд)
 - `VALUTATRADE_DEFAULT_BASE_CURRENCY`
-- `VALUTATRADE_LOG_PATH`
-- `VALUTATRADE_PARSER_LOG_PATH`
+- `VALUTATRADE_LOG_DIR`
+- `VALUTATRADE_ACTION_LOG_FILE`
+- `VALUTATRADE_PARSER_LOG_FILE`
 
 Пример:
 
 ```bash
 export VALUTATRADE_DATA_DIR="./test/data"
-export VALUTATRADE_USERS_FILE="./test/data/users.json"
-export VALUTATRADE_PORTFOLIOS_FILE="./test/data/portfolios.json"
-export VALUTATRADE_RATES_FILE="./test/data/rates.json"
+export VALUTATRADE_USERS_FILE="users.json"
+export VALUTATRADE_PORTFOLIOS_FILE="portfolios.json"
+export VALUTATRADE_RATES_FILE="rates.json"
 export VALUTATRADE_RATES_TTL_SECONDS=300
 export VALUTATRADE_DEFAULT_BASE_CURRENCY="USD"
-export VALUTATRADE_LOG_PATH="./test/logs/actions.log"
-export VALUTATRADE_PARSER_LOG_PATH="./test/logs/parser.log"
+export VALUTATRADE_LOG_DIR="./test/logs"
+export VALUTATRADE_ACTION_LOG_FILE="actions.log"
+export VALUTATRADE_PARSER_LOG_FILE="parser.log"
 ```
 Одной коммандой:
 ```bash
 export VALUTATRADE_DATA_DIR=./test/data \
-        VALUTATRADE_USERS_FILE=./test/data/users.json \
-        VALUTATRADE_PORTFOLIOS_FILE=./test/data/portfolios.json \
-        VALUTATRADE_RATES_FILE=./test/data/rates.json \
+        VALUTATRADE_USERS_FILE=users.json \
+        VALUTATRADE_PORTFOLIOS_FILE=portfolios.json \
+        VALUTATRADE_RATES_FILE=rates.json \
         VALUTATRADE_RATES_TTL_SECONDS=300 \
         VALUTATRADE_DEFAULT_BASE_CURRENCY=USD \
-        VALUTATRADE_LOG_PATH=./test/logs/actions.log \
-        VALUTATRADE_PARSER_LOG_PATH=./test/logs/parser.log
+        VALUTATRADE_LOG_DIR=./test/logs \
+        VALUTATRADE_ACTION_LOG_FILE=actions.log \
+        VALUTATRADE_PARSER_LOG_FILE=parser.log
 ```
 
-Все указанные каталоги создаются автоматически при старте приложения.
+Файлы строятся как `<директория>/<имя файла>`. Все каталоги создаются автоматически.
+Parser Service использует те же пути: кеш `rates.json` и история `exchange_rates.json`
+окажутся в `VALUTATRADE_DATA_DIR`.
 
 После установки переменных окружения CLI работает так же, как при запуске из исходников.
 
