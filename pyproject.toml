@@ -18,6 +18,7 @@ project = "main:main"
 [tool.poetry]
  packages = [
      { include = "valutatrade_hub" },
+     { include = "main.py" },
  ]
 
 [build-system]

@@ -39,7 +39,7 @@ poetry run project   # запуск CLI
 - `default_base_currency` — валюта пересчёта по умолчанию;
 - `log_path`, `parser_log_path` — файлы журналов.
 
-Отсутствие секции/ключей приводит к немедленной ошибке при старте.
+Если секция отсутствует (например, при установке проекта как wheel), значения нужно задать через переменные окружения — см. раздел «Установка как wheel».
 
 ### Ключ внешнего API
 
@@ -96,9 +96,50 @@ $ poetry run project get-rate --from BTC --to EUR
 
 - `valutatrade_hub/infra/settings.py` — `SettingsLoader` реализован через метакласс `SingletonMeta`: логика «один экземпляр» вынесена отдельно и может переиспользоваться (например, для `DatabaseManager`). Это гарантирует единственный объект вне зависимости от импортов, даёт единый источник конфигурации и позволяет безболезненно переиспользовать метакласс в других инфраструктурных компонентах.
 
+## Установка как wheel
+
+При установке проекта как готового wheel рядом нет `pyproject.toml`, поэтому `SettingsLoader` читает конфигурацию из переменных окружения. Необходимо указать абсолютные (или нужные относительные) пути и параметры:
+
+- `VALUTATRADE_DATA_DIR`
+- `VALUTATRADE_USERS_FILE`
+- `VALUTATRADE_PORTFOLIOS_FILE`
+- `VALUTATRADE_RATES_FILE`
+- `VALUTATRADE_RATES_TTL_SECONDS` (число секунд)
+- `VALUTATRADE_DEFAULT_BASE_CURRENCY`
+- `VALUTATRADE_LOG_PATH`
+- `VALUTATRADE_PARSER_LOG_PATH`
+
+Пример:
+
+```bash
+export VALUTATRADE_DATA_DIR="./test/data"
+export VALUTATRADE_USERS_FILE="./test/data/users.json"
+export VALUTATRADE_PORTFOLIOS_FILE="./test/data/portfolios.json"
+export VALUTATRADE_RATES_FILE="./test/data/rates.json"
+export VALUTATRADE_RATES_TTL_SECONDS=300
+export VALUTATRADE_DEFAULT_BASE_CURRENCY="USD"
+export VALUTATRADE_LOG_PATH="./test/logs/actions.log"
+export VALUTATRADE_PARSER_LOG_PATH="./test/logs/parser.log"
+```
+Одной коммандой:
+```bash
+export VALUTATRADE_DATA_DIR=./test/data \
+        VALUTATRADE_USERS_FILE=./test/data/users.json \
+        VALUTATRADE_PORTFOLIOS_FILE=./test/data/portfolios.json \
+        VALUTATRADE_RATES_FILE=./test/data/rates.json \
+        VALUTATRADE_RATES_TTL_SECONDS=300 \
+        VALUTATRADE_DEFAULT_BASE_CURRENCY=USD \
+        VALUTATRADE_LOG_PATH=./test/logs/actions.log \
+        VALUTATRADE_PARSER_LOG_PATH=./test/logs/parser.log
+```
+
+Все указанные каталоги создаются автоматически при старте приложения.
+
+После установки переменных окружения CLI работает так же, как при запуске из исходников.
+
 ## Asciinema демонстрация
 
-[![asciinema installation demo](https://asciinema.org/a/xJaX1VIWkHDkpisUaaz0LW07g.svg)](https://asciinema.org/a/xJaX1VIWkHDkpisUaaz0LW07g)
+[![asciinema installation demo](https://<some_url>.svg)](https://<some_url>>)
 
 ## Лицензия
 
