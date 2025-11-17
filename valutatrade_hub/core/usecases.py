@@ -54,8 +54,14 @@ def _build_trade_context(
 
 def _build_usd_rates(rates_data: Dict[str, Any]) -> Dict[str, float]:
     """Строит карту «валюта → курс к USD» из данных кеша."""
+    pairs_section = rates_data.get("pairs")
+    if isinstance(pairs_section, dict):
+        raw_pairs = pairs_section
+    else:
+        raw_pairs = rates_data
+
     rates: Dict[str, float] = {"USD": 1.0}
-    for pair, info in rates_data.items():
+    for pair, info in raw_pairs.items():
         if pair in {"last_refresh", "source"}:
             continue
         if not isinstance(info, dict) or "_" not in pair:
