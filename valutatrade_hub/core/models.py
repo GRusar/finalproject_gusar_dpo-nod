@@ -4,15 +4,9 @@ from base64 import b64decode, b64encode
 from datetime import datetime
 from hashlib import sha256
 from os import urandom
-from typing import Dict, Optional
+from typing import Optional
 
-DEFAULT_EXCHANGE_RATES: Dict[str, float] = {
-    "USD": 1.0,
-    "EUR": 1.08,
-    "BTC": 60000.0,
-    "ETH": 3200.0,
-    "RUB": 0.01016,
-}
+from valutatrade_hub.core.exceptions import InsufficientFundsError
 
 
 class User:
@@ -135,7 +129,11 @@ class Wallet:
         """Снятие средств (если баланс позволяет)."""
         value = self._validate_amount(amount)
         if value > self._balance:
-            raise ValueError("Недостаточно средств на кошельке")
+            raise InsufficientFundsError(
+                available=self._balance,
+                required=value,
+                code=self.currency_code,
+            )
         self._balance -= value
 
     def get_balance_info(self) -> dict[str, float | str]:
@@ -181,21 +179,22 @@ class Portfolio:
         exchange_rates: Optional[dict[str, float]] = None,
     ) -> float:
         """Возвращает общую стоимость всех валют пользователя в базовой валюте."""
+        if not exchange_rates:
+            raise ValueError("Не переданы курсы для оценки портфеля")
         normalized_base = Wallet._normalize_currency_code(base_currency)
-        rates = exchange_rates or DEFAULT_EXCHANGE_RATES
-        if normalized_base not in rates:
+        if normalized_base not in exchange_rates:
             raise ValueError(f"Нет курса для базовой валюты {normalized_base}")
 
         total_in_usd = 0.0
         for wallet in self._wallets.values():
             code = wallet.currency_code
-            if code not in rates:
+            if code not in exchange_rates:
                 raise ValueError(f"Нет курса для валюты {code}")
-            total_in_usd += wallet.balance * rates[code]
+            total_in_usd += wallet.balance * exchange_rates[code]
 
         if normalized_base == "USD":
             return total_in_usd
-        return total_in_usd / rates[normalized_base]
+        return total_in_usd / exchange_rates[normalized_base]
 
     def get_wallet(self, currency_code: str) -> Optional[Wallet]:
         """Возвращает объект Wallet по коду валюты."""

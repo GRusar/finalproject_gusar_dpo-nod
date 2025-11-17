@@ -208,6 +208,9 @@ def get_rate(from_code: str, to_code: str) -> None:
         print(
             f"Обратный курс {normalized_to}→{normalized_from}: {inverse_rate:.8f}",
         )
+    if result.get("stale"):
+        warning = result.get("warning") or "Данные устарели. Запустите Parser Service."
+        print(f"Внимание: {warning}")
 
 
 def _dispatch_command(args) -> None:

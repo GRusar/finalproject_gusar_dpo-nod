@@ -7,7 +7,8 @@ from typing import Any, Dict, Optional
 
 from valutatrade_hub.core.currencies import get_currency
 from valutatrade_hub.core.exceptions import ApiRequestError, InsufficientFundsError
-from valutatrade_hub.core.models import DEFAULT_EXCHANGE_RATES, User
+from valutatrade_hub.core.models import User
+from valutatrade_hub.core.utils import parse_iso_datetime
 from valutatrade_hub.decorators import log_action
 from valutatrade_hub.infra.database import DatabaseManager
 from valutatrade_hub.infra.settings import SettingsLoader
@@ -51,53 +52,52 @@ def _build_trade_context(
     return {k: v for k, v in context.items() if v is not None}
 
 
+def _build_usd_rates(rates_data: Dict[str, Any]) -> Dict[str, float]:
+    """Строит карту «валюта → курс к USD» из данных кеша."""
+    rates: Dict[str, float] = {"USD": 1.0}
+    for pair, info in rates_data.items():
+        if pair in {"last_refresh", "source"}:
+            continue
+        if not isinstance(info, dict) or "_" not in pair:
+            continue
+        if "rate" not in info:
+            continue
+        try:
+            rate_value = float(info["rate"])
+        except (TypeError, ValueError):
+            continue
+        from_code, to_code = pair.split("_", 1)
+        from_code = from_code.upper()
+        to_code = to_code.upper()
+
+        if to_code == "USD":
+            rates[from_code] = rate_value
+        elif from_code == "USD" and rate_value != 0:
+            rates[to_code] = 1 / rate_value
+    return rates
+
+
 def _load_exchange_rates() -> Dict[str, float]:
-    """Подтягивает курсы валют из кеша и накладывает их на значения по умолчанию."""
+    """Подтягивает курсы валют из кеша и возвращает словарь курсов к USD."""
     rates_data = db_manager.read("rates", default={})
-    merged_rates = dict(DEFAULT_EXCHANGE_RATES)
+    if not isinstance(rates_data, dict):
+        raise ValueError("Некорректный формат файла rates.json")
 
-    if isinstance(rates_data, dict):
-        for pair, info in rates_data.items():
-            if not isinstance(info, dict):
-                continue
-            if "_" not in pair or "rate" not in info:
-                continue
-            from_code, to_code = pair.split("_", 1)
-            from_code = from_code.upper()
-            to_code = to_code.upper()
-            try:
-                rate_value = float(info["rate"])
-            except (TypeError, ValueError):
-                continue
-            if to_code == "USD":
-                merged_rates[from_code] = rate_value
-            elif from_code == "USD" and rate_value != 0:
-                merged_rates[to_code] = 1 / rate_value
-
-    return merged_rates
-
-
-def _parse_timestamp(value: Any) -> Optional[datetime]:
-    if not isinstance(value, str):
-        return None
-    try:
-        ts = datetime.fromisoformat(value)
-    except ValueError:
-        return None
-    if ts.tzinfo is None:
-        ts = ts.replace(tzinfo=timezone.utc)
-    return ts
+    rates = _build_usd_rates(rates_data)
+    if len(rates) <= 1:
+        raise ValueError("В кеше отсутствуют данные о курсах")
+    return rates
 
 
 def _is_rates_fresh(rates_data: Dict[str, Any]) -> bool:
     ttl_seconds = int(settings.get("RATES_TTL_SECONDS", 300))
-    last_refresh = _parse_timestamp(rates_data.get("last_refresh"))
+    last_refresh = parse_iso_datetime(rates_data.get("last_refresh"))
     if last_refresh is None:
         return False
     return datetime.now(timezone.utc) - last_refresh <= timedelta(seconds=ttl_seconds)
 
 
-def _refresh_rates_cache() -> Dict[str, Any]:
+def _refresh_rates_cache(current_data: Dict[str, Any]) -> Dict[str, Any]:
     """Попытка обновить кеш курсов (заглушка до подключения Parser Service)."""
     raise ApiRequestError(
         "Обновление курсов пока недоступно. Запустите Parser Service.",
@@ -358,70 +358,48 @@ def get_exchange_rate(from_code: str, to_code: str) -> dict[str, Any]:
             "rate": 1.0,
             "updated_at": None,
             "inverse_rate": 1.0,
+            "stale": False,
         }
 
     rates_data = db_manager.read("rates", default={})
     if not isinstance(rates_data, dict):
         raise ValueError("Некорректный формат файла rates.json")
 
+    stale = False
+    warning: Optional[str] = None
     if not _is_rates_fresh(rates_data):
-        rates_data = _refresh_rates_cache()
-        if not isinstance(rates_data, dict):
-            raise ApiRequestError("Не удалось обновить кеш курсов")
-
-    def _extract_pair(pair_from: str, pair_to: str) -> Optional[dict[str, Any]]:
-        key = f"{pair_from}_{pair_to}"
-        entry = rates_data.get(key)
-        if not isinstance(entry, dict):
-            return None
-        if "rate" not in entry:
-            return None
+        stale = True
         try:
-            rate_value = float(entry["rate"])
-        except (TypeError, ValueError):
-            return None
-        updated_at = entry.get("updated_at") or rates_data.get("last_refresh")
-        return {
-            "from_code": pair_from,
-            "to_code": pair_to,
-            "rate": rate_value,
-            "updated_at": updated_at,
-            "inverse_rate": None if rate_value == 0 else 1 / rate_value,
-        }
+            refreshed = _refresh_rates_cache(rates_data)
+        except ApiRequestError as error:
+            warning = str(error)
+            if not rates_data:
+                raise
+        else:
+            rates_data = refreshed
+            stale = False
 
-    direct = _extract_pair(normalized_from, normalized_to)
-    if direct:
-        return direct
-
-    inverse = _extract_pair(normalized_to, normalized_from)
-    if inverse and inverse["rate"]:
-        rate_value = 1 / inverse["rate"]
-        return {
-            "from_code": normalized_from,
-            "to_code": normalized_to,
-            "rate": rate_value,
-            "updated_at": inverse["updated_at"],
-            "inverse_rate": inverse["rate"],
-        }
-
-    exchange_rates = _load_exchange_rates()
-    if normalized_from not in exchange_rates:
+    usd_rates = _build_usd_rates(rates_data)
+    if normalized_from not in usd_rates:
         raise ValueError(f"Не удалось получить курс для {normalized_from}")
-    if normalized_to not in exchange_rates:
+    if normalized_to not in usd_rates:
         raise ValueError(f"Не удалось получить курс для {normalized_to}")
 
-    from_to_usd = exchange_rates[normalized_from]
-    to_to_usd = exchange_rates[normalized_to]
+    from_to_usd = usd_rates[normalized_from]
+    to_to_usd = usd_rates[normalized_to]
     if to_to_usd == 0:
         raise ValueError(f"Некорректный курс для валюты {normalized_to}")
 
     rate_value = from_to_usd / to_to_usd
     updated_at = rates_data.get("last_refresh")
-
-    return {
+    result = {
         "from_code": normalized_from,
         "to_code": normalized_to,
         "rate": rate_value,
         "updated_at": updated_at,
         "inverse_rate": None if rate_value == 0 else 1 / rate_value,
+        "stale": stale,
     }
+    if warning:
+        result["warning"] = warning
+    return result

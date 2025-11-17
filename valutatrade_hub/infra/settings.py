@@ -57,6 +57,7 @@ class SettingsLoader(metaclass=SingletonMeta):
             "RATES_FILE",
             "RATES_TTL_SECONDS",
             "DEFAULT_BASE_CURRENCY",
+            "LOG_PATH",
         ]
         missing = [key for key in required_keys if key not in config]
         if missing:
