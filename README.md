@@ -4,6 +4,7 @@
 
 - `valutatrade_hub/cli/command_parser.py` — CLI использует `argparse` с русифицированными ошибками и удобным help по командам.
 - `valutatrade_hub/parser_service/config.py` — Parser Service проверяет переменную окружения `EXCHANGERATE_API_KEY` и, если её нет, пытается прочитать ключ из `.env`; при отсутствии ключа явно сообщает об ошибке.
+- Parser Service хранит пути к `rates.json`, `exchange_rates.json` и `logs/parser.log` в `ParserConfig`, поэтому CLI и обновление курсов всегда знают, куда писать кеш и логи.
 
 ## Пояснение реализации Singleton
 

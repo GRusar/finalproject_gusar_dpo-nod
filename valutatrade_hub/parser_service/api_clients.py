@@ -80,7 +80,7 @@ class ExchangeRateApiClient(BaseApiClient):
     """Загружает курсы фиатных валют из ExchangeRate-API."""
 
     def __init__(self, config: ParserConfig) -> None:
-        super().__init__(config, source_name="exchangerate-api")
+        super().__init__(config, source_name="exchangerate")
 
     def fetch_rates(self) -> Dict[str, Dict[str, Any]]:
         url = (
@@ -93,20 +93,22 @@ class ExchangeRateApiClient(BaseApiClient):
             response = requests.get(url, timeout=self.config.REQUEST_TIMEOUT)
             response.raise_for_status()
         except requests.RequestException as exc:
+            detail = getattr(exc.response, "text", str(exc))
             raise ApiRequestError(
-                "Запрос к ExchangeRate-API завершился ошибкой",
+                f"ExchangeRate-API: {detail}",
             ) from exc
 
         payload = response.json()
         if payload.get("result") != "success":
             raise ApiRequestError(
-                f"ExchangeRate-API вернул ошибку: {payload.get('error-type')}",
+                f"ExchangeRate-API вернул ошибку: {payload.get('error-type')} "
+                f"({payload})",
             )
         elapsed_ms = (time.perf_counter() - start) * 1000
         api_timestamp = payload.get("time_last_update_utc")
         rates: Dict[str, Dict[str, Any]] = {}
         for code in self.config.FIAT_CURRENCIES:
-            rate = payload.get("rates", {}).get(code)
+            rate = payload.get("conversion_rates", {}).get(code)
             if rate is None:
                 continue
             rates[f"{code}_{self.config.BASE_CURRENCY}"] = {
@@ -120,7 +122,9 @@ class ExchangeRateApiClient(BaseApiClient):
                 },
             }
         if not rates:
-            raise ApiRequestError("ExchangeRate-API не вернул ни одного курса")
+            raise ApiRequestError(
+                "ExchangeRate-API не вернул ни одного курса"
+                f"raw api payload: \n{payload}")
         return rates
 
 

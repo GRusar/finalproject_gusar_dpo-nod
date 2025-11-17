@@ -46,7 +46,7 @@ class SettingsLoader(metaclass=SingletonMeta):
         for raw_key, value in valutatrade_section.items():
             key = raw_key.upper()
             if key.endswith("_FILE") or key.endswith("_DIR") or key.endswith("_PATH"):
-                config[key] = (PROJECT_ROOT / value).resolve()
+                config[key] = (Path(value) if value else Path()).resolve()
             else:
                 config[key] = value
 
@@ -58,6 +58,7 @@ class SettingsLoader(metaclass=SingletonMeta):
             "RATES_TTL_SECONDS",
             "DEFAULT_BASE_CURRENCY",
             "LOG_PATH",
+            "PARSER_LOG_PATH",
         ]
         missing = [key for key in required_keys if key not in config]
         if missing:

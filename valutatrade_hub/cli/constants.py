@@ -7,6 +7,8 @@ COMMANDS: dict[str, str] = {
     "buy --currency <код> --amount <число>": "Купить валюту",
     "sell --currency <код> --amount <число>": "Продать валюту",
     "get-rate --from <код> --to <код>": "Получить курс",
+    "update-rates [--source coingecko|exchangerate]": "Обновить кеш курсов",
+    "show-rates [--currency X --top N --base USD]": "Показать сохранённые курсы",
     "exit": "Выход из CLI",
 }
 

@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Tuple
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 ENV_PATH = PROJECT_ROOT / ".env"
@@ -40,14 +39,16 @@ class ParserConfig:
 
     # Списки валют
     BASE_CURRENCY: str = "USD"
-    FIAT_CURRENCIES: Tuple[str, ...] = ("EUR", "GBP", "RUB")
-    CRYPTO_CURRENCIES: Tuple[str, ...] = ("BTC", "ETH", "SOL")
-    CRYPTO_ID_MAP: Dict[str, str] = {
-        "BTC": "bitcoin",
-        "ETH": "ethereum",
-        "SOL": "solana",
-    }
-    
+    FIAT_CURRENCIES: tuple[str, ...] = ("EUR", "GBP", "RUB")
+    CRYPTO_CURRENCIES: tuple[str, ...] = ("BTC", "ETH", "SOL")
+    CRYPTO_ID_MAP: dict[str, str] = field(
+        default_factory=lambda: {
+            "BTC": "bitcoin",
+            "ETH": "ethereum",
+            "SOL": "solana",
+        },
+    )
+
     # Пути
     RATES_FILE_PATH: str = str(PROJECT_ROOT / "data" / "rates.json")
     HISTORY_FILE_PATH: str = str(PROJECT_ROOT / "data" / "exchange_rates.json")

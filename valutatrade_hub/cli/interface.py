@@ -1,7 +1,7 @@
 """Командный интерфейс ValutaTrade Hub."""
 
 import shlex
-from typing import Any, Sequence
+from typing import Any, Dict, Sequence
 
 from valutatrade_hub.cli import constants
 from valutatrade_hub.cli.command_parser import build_parser
@@ -12,6 +12,13 @@ from valutatrade_hub.core.exceptions import (
     CurrencyNotFoundError,
     InsufficientFundsError,
 )
+from valutatrade_hub.parser_service.api_clients import (
+    coin_gecko_client,
+    exchange_rate_client,
+)
+from valutatrade_hub.parser_service.config import parser_config
+from valutatrade_hub.parser_service.storage import rates_storage
+from valutatrade_hub.parser_service.updater import RatesUpdater
 
 CURRENT_SESSION: dict[str, Any] = {"user_id": None, "username": None}
 HANDLED_ERRORS = (
@@ -35,6 +42,115 @@ def _print_error(error: Exception) -> None:
         print(f"{error} Проверьте сетевое подключение или попробуйте позже.")
     else:
         print(error)
+
+
+def update_rates_command(source: str | None) -> None:
+    client_map = {
+        "coingecko": coin_gecko_client,
+        "exchangerate": exchange_rate_client,
+        "exchangerate-api": exchange_rate_client,
+    }
+    if source and source not in client_map:
+        print("Неизвестный источник. Доступны: coingecko, exchangerate")
+        return
+    clients = (
+        [client_map[source]]
+        if source
+        else [coin_gecko_client, exchange_rate_client]
+    )
+    updater = RatesUpdater(clients)
+    try:
+        result = updater.run_update(
+            active_sources=[source] if source else None,
+        )
+    except ApiRequestError as error:
+        _print_error(error)
+        return
+    if result["errors"]:
+        print("Обновление выполнено с ошибками. См. логи.")
+        for message in result["errors"]:
+            print(f"- {message}")
+        print(f"Лог: {parser_config.PARSER_LOG_PATH}")
+    else:
+        print("Обновление курсов выполнено успешно.")
+    print(
+        f"Всего обновлено пар: {result['total_rates']}. "
+        f"Последнее обновление: {result['last_refresh']}",
+    )
+
+
+def show_rates_command(
+    currency: str | None,
+    top: int | None,
+    base: str | None,
+) -> None:
+    data = rates_storage.read_rates()
+    pairs: Dict[str, Dict[str, Any]] = data.get("pairs", {})
+    if not pairs:
+        print("Локальный кеш курсов пуст. Выполните 'update-rates'.")
+        return
+
+    target_base = (base or parser_config.BASE_CURRENCY).upper()
+    requested_currency = currency.upper() if currency else None
+
+    def convert_rate(pair_rate: float, pair_base: str) -> float | None:
+        if pair_base == target_base:
+            return pair_rate
+        if pair_base != parser_config.BASE_CURRENCY:
+            return None
+        target_pair = pairs.get(
+            f"{target_base}_{parser_config.BASE_CURRENCY}",
+        )
+        if not target_pair:
+            return None
+        base_rate = target_pair["rate"]
+        if base_rate == 0:
+            return None
+        return pair_rate / base_rate
+
+    entries = []
+    for pair, info in pairs.items():
+        from_code, pair_base = pair.split("_", 1)
+        if requested_currency and from_code != requested_currency:
+            continue
+        converted = convert_rate(info["rate"], pair_base)
+        if converted is None:
+            continue
+        entries.append(
+            {
+                "pair": f"{from_code}_{target_base}",
+                "rate": converted,
+                "source": info.get("source"),
+                "updated_at": info.get("updated_at"),
+                "is_crypto": from_code in parser_config.CRYPTO_CURRENCIES,
+            },
+        )
+
+    if requested_currency and not entries:
+        print(f"Курс для '{requested_currency}' не найден в кеше.")
+        return
+
+    if top:
+        crypto_entries = [e for e in entries if e["is_crypto"]]
+        entries = sorted(
+            crypto_entries,
+            key=lambda e: e["rate"],
+            reverse=True,
+        )[:top]
+    else:
+        entries.sort(key=lambda e: e["pair"])
+
+    if not entries:
+        print("Нет записей, удовлетворяющих фильтрам.")
+        return
+
+    last_refresh = data.get("last_refresh") or "неизвестно"
+    print(f"Rates from cache (updated at {last_refresh}):")
+    for entry in entries:
+        print(
+            f"- {entry['pair']}: {entry['rate']:.6f} "
+            f"(source: {entry['source']}, updated_at={entry['updated_at']})",
+        )
 
 
 def register(username: str, password: str) -> None:
@@ -228,6 +344,10 @@ def _dispatch_command(args) -> None:
             sell(args.currency, args.amount)
         case "get-rate":
             get_rate(args.from_code, args.to_code)
+        case "update-rates":
+            update_rates_command(args.source)
+        case "show-rates":
+            show_rates_command(args.currency, args.top, args.base)
         case _:
             print(f"Неизвестная команда: {args.command}")
 

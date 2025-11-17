@@ -2,21 +2,27 @@
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List
 
 from valutatrade_hub.core.exceptions import ApiRequestError
 from valutatrade_hub.core.utils import parse_iso_datetime
+from valutatrade_hub.logging_config import get_parser_logger
 from valutatrade_hub.parser_service.api_clients import BaseApiClient
 from valutatrade_hub.parser_service.storage import RatesStorage, rates_storage
 
-logger = logging.getLogger("parser_service.updater")
-logger.setLevel(logging.INFO)
-
+logger = get_parser_logger().getChild("updater")
 
 class RatesUpdater:
     """Оркестрирует опрос клиентов и запись данных в хранилище."""
+
+    SOURCE_ALIASES = {
+        "exchangerate-api": "exchangerate",
+    }
+
+    @classmethod
+    def _normalize_source(cls, name: str) -> str:
+        return cls.SOURCE_ALIASES.get(name.lower(), name.lower())
 
     def __init__(
         self,
@@ -27,7 +33,11 @@ class RatesUpdater:
         self.storage = storage or rates_storage
 
     def run_update(self, active_sources: Iterable[str] | None = None) -> Dict[str, Any]:
-        sources = {name.lower() for name in active_sources} if active_sources else None
+        sources = (
+            {self._normalize_source(name) for name in active_sources}
+            if active_sources
+            else None
+        )
         new_entries: Dict[str, Dict[str, Any]] = {}
         history_records: List[Dict[str, Any]] = []
         errors: List[str] = []
@@ -35,14 +45,17 @@ class RatesUpdater:
 
         logger.info("Starting rates update...")
         for client in self.clients:
-            source_name = getattr(
-                client,
-                "source_name",
-                client.__class__.__name__,
-            ).lower()
+            source_name = self._normalize_source(
+                getattr(
+                    client,
+                    "source_name",
+                    client.__class__.__name__,
+                ),
+            )
             if sources and source_name not in sources:
+                logger.error("No sources and source_name in sources")
                 continue
-            logger.info("Fetching from %s...", source_name)
+            logger.info(f"Fetching from {source_name}...")
             try:
                 rates = client.fetch_rates()
             except ApiRequestError as error:
@@ -113,4 +126,8 @@ class RatesUpdater:
         logger.info("Update finished: %d rates", total_rates)
         if errors:
             logger.warning("Completed with errors: %s", " | ".join(errors))
-        return {"total_rates": total_rates, "errors": errors}
+        return {
+            "total_rates": total_rates,
+            "errors": errors,
+            "last_refresh": payload["last_refresh"],
+        }

@@ -46,3 +46,4 @@ rates_file = "data/rates.json"
 rates_ttl_seconds = 300
 default_base_currency = "USD"
 log_path = "logs/actions.log"
+parser_log_path = "logs/parser.log"

@@ -114,4 +114,35 @@ def build_parser() -> ArgumentParser:
     rate_parser.add_argument("--from", dest="from_code", required=True)
     rate_parser.add_argument("--to", dest="to_code", required=True)
 
+    update_parser = subparsers.add_parser(
+        "update-rates",
+        help="Обновить кеш курсов",
+        add_help=False,
+        prog="ValutaTradeHub update-rates",
+    )
+    _add_help_argument(update_parser)
+    update_parser.add_argument(
+        "--source",
+        choices=["coingecko", "exchangerate", "exchangerate-api"],
+        help="Обновить только выбранный источник",
+    )
+
+    show_rates_parser = subparsers.add_parser(
+        "show-rates",
+        help="Показать курсы из кеша",
+        add_help=False,
+        prog="ValutaTradeHub show-rates",
+    )
+    _add_help_argument(show_rates_parser)
+    show_rates_parser.add_argument(
+        "--currency",
+        help="Фильтр по валюте (например BTC)",
+    )
+    show_rates_parser.add_argument(
+        "--top",
+        type=int,
+        help="Показать N самых дорогих криптовалют",
+    )
+    show_rates_parser.add_argument("--base", help="Базовая валюта для отображения")
+
     return parser

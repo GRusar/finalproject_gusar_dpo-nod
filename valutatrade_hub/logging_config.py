@@ -10,6 +10,7 @@ from typing import Optional
 from valutatrade_hub.infra.settings import SettingsLoader
 
 _LOGGER: Optional[logging.Logger] = None
+_PARSER_LOGGER: Optional[logging.Logger] = None
 LOGGER_NAME = "valutatrade.actions"
 MAX_BYTES = 1_000_000
 BACKUP_COUNT = 3
@@ -44,6 +45,34 @@ def get_action_logger() -> logging.Logger:
         formatter = logging.Formatter("%(message)s")
         handler.setFormatter(formatter)
         logger.addHandler(handler)
-        logger.propagate = False
+    logger.propagate = False
     _LOGGER = logger
+    return logger
+
+
+def get_parser_logger() -> logging.Logger:
+    """Логфиксатор Parser Service (с ротацией)."""
+    global _PARSER_LOGGER
+    if _PARSER_LOGGER is not None:
+        return _PARSER_LOGGER
+
+    settings = SettingsLoader()
+    log_path = Path(settings.get("PARSER_LOG_PATH"))
+    log_file = _ensure_log_path(log_path)
+
+    logger = logging.getLogger("parser_service")
+    if not logger.handlers:
+        logger.setLevel(DEFAULT_LEVEL)
+        handler = RotatingFileHandler(
+            log_file,
+            maxBytes=MAX_BYTES,
+            backupCount=BACKUP_COUNT,
+            encoding="utf-8",
+        )
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"),
+        )
+        logger.addHandler(handler)
+        logger.propagate = False
+    _PARSER_LOGGER = logger
     return logger
