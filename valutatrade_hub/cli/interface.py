@@ -6,6 +6,7 @@ from typing import Any, Sequence
 from valutatrade_hub.cli import constants
 from valutatrade_hub.cli.command_parser import build_parser
 from valutatrade_hub.core import usecases
+from valutatrade_hub.core.currencies import CURRENCY_REGISTRY
 from valutatrade_hub.core.exceptions import (
     ApiRequestError,
     CurrencyNotFoundError,
@@ -21,12 +22,27 @@ HANDLED_ERRORS = (
 )
 
 
+def _list_supported_currencies() -> str:
+    codes = sorted(CURRENCY_REGISTRY.keys())
+    return ", ".join(codes)
+
+
+def _print_error(error: Exception) -> None:
+    if isinstance(error, CurrencyNotFoundError):
+        codes = _list_supported_currencies()
+        print(f"{error}. Поддерживаемые коды: {codes}")
+    elif isinstance(error, ApiRequestError):
+        print(f"{error} Проверьте сетевое подключение или попробуйте позже.")
+    else:
+        print(error)
+
+
 def register(username: str, password: str) -> None:
     """Обработчик команды register."""
     try:
         result = usecases.register_user(username=username, password=password)
     except HANDLED_ERRORS as error:
-        print(error)
+        _print_error(error)
         return
 
     user = result["username"]
@@ -42,7 +58,7 @@ def login(username: str, password: str) -> None:
     try:
         result = usecases.login_user(username=username, password=password)
     except HANDLED_ERRORS as error:
-        print(error)
+        _print_error(error)
         return
 
     CURRENT_SESSION["user_id"] = result["user_id"]
@@ -62,7 +78,7 @@ def show_portfolio(base_currency: str = "USD") -> None:
             base_currency=base_currency,
         )
     except HANDLED_ERRORS as error:
-        print(error)
+        _print_error(error)
         return
 
     wallets = report["wallets"]
@@ -99,7 +115,7 @@ def buy(currency_code: str, amount: float) -> None:
             amount=amount,
         )
     except HANDLED_ERRORS as error:
-        print(error)
+        _print_error(error)
         return
 
     code = result["currency_code"]
@@ -141,7 +157,7 @@ def sell(currency_code: str, amount: float) -> None:
             amount=amount,
         )
     except HANDLED_ERRORS as error:
-        print(error)
+        _print_error(error)
         return
 
     code = result["currency_code"]
@@ -175,7 +191,7 @@ def get_rate(from_code: str, to_code: str) -> None:
     try:
         result = usecases.get_exchange_rate(from_code=from_code, to_code=to_code)
     except HANDLED_ERRORS as error:
-        print(error)
+        _print_error(error)
         return
 
     rate = result["rate"]

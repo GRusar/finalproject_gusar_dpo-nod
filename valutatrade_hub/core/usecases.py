@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 from valutatrade_hub.core.currencies import get_currency
-from valutatrade_hub.core.exceptions import InsufficientFundsError
+from valutatrade_hub.core.exceptions import ApiRequestError, InsufficientFundsError
 from valutatrade_hub.core.models import DEFAULT_EXCHANGE_RATES, User
 from valutatrade_hub.decorators import log_action
 from valutatrade_hub.infra.database import DatabaseManager
@@ -74,6 +75,33 @@ def _load_exchange_rates() -> Dict[str, float]:
                 merged_rates[to_code] = 1 / rate_value
 
     return merged_rates
+
+
+def _parse_timestamp(value: Any) -> Optional[datetime]:
+    if not isinstance(value, str):
+        return None
+    try:
+        ts = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return ts
+
+
+def _is_rates_fresh(rates_data: Dict[str, Any]) -> bool:
+    ttl_seconds = int(settings.get("RATES_TTL_SECONDS", 300))
+    last_refresh = _parse_timestamp(rates_data.get("last_refresh"))
+    if last_refresh is None:
+        return False
+    return datetime.now(timezone.utc) - last_refresh <= timedelta(seconds=ttl_seconds)
+
+
+def _refresh_rates_cache() -> Dict[str, Any]:
+    """Попытка обновить кеш курсов (заглушка до подключения Parser Service)."""
+    raise ApiRequestError(
+        "Обновление курсов пока недоступно. Запустите Parser Service.",
+    )
 
 
 def register_user(username: str, password: str) -> dict[str, Any]:
@@ -333,10 +361,13 @@ def get_exchange_rate(from_code: str, to_code: str) -> dict[str, Any]:
         }
 
     rates_data = db_manager.read("rates", default={})
-    if rates_data is None:
-        rates_data = {}
     if not isinstance(rates_data, dict):
         raise ValueError("Некорректный формат файла rates.json")
+
+    if not _is_rates_fresh(rates_data):
+        rates_data = _refresh_rates_cache()
+        if not isinstance(rates_data, dict):
+            raise ApiRequestError("Не удалось обновить кеш курсов")
 
     def _extract_pair(pair_from: str, pair_to: str) -> Optional[dict[str, Any]]:
         key = f"{pair_from}_{pair_to}"
