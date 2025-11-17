@@ -83,9 +83,10 @@ class ExchangeRateApiClient(BaseApiClient):
         super().__init__(config, source_name="exchangerate")
 
     def fetch_rates(self) -> Dict[str, Dict[str, Any]]:
+        api_key = self.config.get_exchange_api_key()
         url = (
             f"{self.config.EXCHANGERATE_API_URL}/"
-            f"{self.config.EXCHANGERATE_API_KEY}/latest/"
+            f"{api_key}/latest/"
             f"{self.config.BASE_CURRENCY}"
         )
         start = time.perf_counter()

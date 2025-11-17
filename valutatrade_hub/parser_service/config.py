@@ -30,8 +30,8 @@ def _get_api_key() -> str:
 class ParserConfig:
     """Хранит настройки источников курсов и хранения файлов."""
 
-    # Ключ загружается из переменной окружения/.env
-    EXCHANGERATE_API_KEY: str = field(default_factory=_get_api_key)
+    # Ключ загружается из переменной окружения/.env (лениво)
+    EXCHANGERATE_API_KEY: str | None = None
 
     # Эндпоинты
     COINGECKO_URL: str = "https://api.coingecko.com/api/v3/simple/price"
@@ -55,5 +55,15 @@ class ParserConfig:
 
     # Сетевые параметры
     REQUEST_TIMEOUT: int = 10
+
+    def get_exchange_api_key(self) -> str:
+        """Возвращает API-ключ, загружая его при необходимости."""
+        if self.EXCHANGERATE_API_KEY:
+            return self.EXCHANGERATE_API_KEY
+
+        api_key = _get_api_key()
+        self.EXCHANGERATE_API_KEY = api_key
+        return api_key
+
 
 parser_config = ParserConfig()
