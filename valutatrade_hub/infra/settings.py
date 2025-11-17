@@ -46,7 +46,13 @@ class SettingsLoader(metaclass=SingletonMeta):
         for raw_key, value in valutatrade_section.items():
             key = raw_key.upper()
             if key.endswith("_FILE") or key.endswith("_DIR") or key.endswith("_PATH"):
-                config[key] = (Path(value) if value else Path()).resolve()
+                if value is None:
+                    config[key] = PROJECT_ROOT
+                    continue
+                path_value = Path(value)
+                if not path_value.is_absolute():
+                    path_value = PROJECT_ROOT / path_value
+                config[key] = path_value.resolve()
             else:
                 config[key] = value
 
