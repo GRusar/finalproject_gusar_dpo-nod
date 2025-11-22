@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import os
 import tomllib
 from pathlib import Path
 from typing import Any, Dict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
-
+ENV_PYPROJECT_PATH = "VALUTATRADE_PYPROJECT_PATH"
 
 
 class SingletonMeta(type):
@@ -74,7 +75,15 @@ class SettingsLoader(metaclass=SingletonMeta):
         self._config = config
 
     def _read_pyproject(self) -> Dict[str, Any]:
-        if not PYPROJECT_PATH.exists():
+        target_path = PYPROJECT_PATH
+        if not target_path.exists():
+            env_override = os.getenv(ENV_PYPROJECT_PATH)
+            if not env_override:
+                print("pyproject.toml не найден и переменная окружения VALUTATRADE_PYPROJECT_PATH не установлена")
+                return {}
+            target_path = Path(env_override).expanduser()
+            print(f"pyproject.toml не найден по пути {PYPROJECT_PATH}, пробуем {target_path}")
+        if not target_path.exists():
             return {}
-        with PYPROJECT_PATH.open("rb") as file:
+        with target_path.open("rb") as file:
             return tomllib.load(file)

@@ -28,6 +28,15 @@ make lint         # проверка стиля (ruff)
 poetry run project   # запуск CLI
 # либо make project (обёртка)
 ```
+## Установка как wheel
+
+После `make package-install` (установки как wheel) нужно указать путь к pyproject с секцией `[tool.valutatrade]` (см. [конфигурация](#конфигурация-toolvalutatrade)) в переменной окружения `VALUTATRADE_PYPROJECT_PATH`
+
+```bash
+export VALUTATRADE_PYPROJECT_PATH=/path/to/pyproject.toml
+# можно запускать
+project
+```
 
 ## Конфигурация `[tool.valutatrade]`
 
@@ -38,8 +47,6 @@ poetry run project   # запуск CLI
 - `rates_ttl_seconds` — TTL кеша курсов;
 - `default_base_currency` — валюта пересчёта по умолчанию;
 - `log_path`, `parser_log_path` — файлы журналов.
-
-Если секция отсутствует (например, при установке проекта как wheel), значения нужно задать через переменные окружения — см. раздел «Установка как wheel».
 
 ### Ключ внешнего API
 
@@ -73,8 +80,18 @@ $ poetry run project login --username alice --password secret
 $ poetry run project buy --currency BTC --amount 0.05
 $ poetry run project show-portfolio --base USD
 $ poetry run project get-rate --from BTC --to EUR
+```
 
-# Пример работы в интерактивном режиме смотреть в asciinema записи
+Интерактивный режим:
+
+```bash
+$ poetry run project
+ValutaTrade Hub CLI.
+> register --username bob --password 1234
+> login --username bob --password 1234
+> buy --currency ETH --amount 0.5
+> show-portfolio
+> exit
 ```
 
 Ошибки печатаются по-русски (например, «Недостаточно средств», «Неизвестная валюта»), поддерживается вывод подсказок `команда -h`.
@@ -96,55 +113,6 @@ $ poetry run project get-rate --from BTC --to EUR
 
 - `valutatrade_hub/infra/settings.py` — `SettingsLoader` реализован через метакласс `SingletonMeta`: логика «один экземпляр» вынесена отдельно и может переиспользоваться (например, для `DatabaseManager`). Это гарантирует единственный объект вне зависимости от импортов, даёт единый источник конфигурации и позволяет безболезненно переиспользовать метакласс в других инфраструктурных компонентах.
 
-## Установка как wheel
-
-При установке проекта как готового wheel рядом нет `pyproject.toml`, поэтому `SettingsLoader` читает конфигурацию из переменных окружения. Необходимо указать абсолютные (или нужные относительные) пути и параметры:
-
-- `VALUTATRADE_DATA_DIR`
-- `VALUTATRADE_USERS_FILE`
-- `VALUTATRADE_PORTFOLIOS_FILE`
-- `VALUTATRADE_RATES_FILE`
-- `VALUTATRADE_RATES_TTL_SECONDS` (число секунд)
-- `VALUTATRADE_DEFAULT_BASE_CURRENCY`
-- `VALUTATRADE_LOG_DIR`
-- `VALUTATRADE_ACTION_LOG_FILE`
-- `VALUTATRADE_PARSER_LOG_FILE`
-
-Пример:
-
-```bash
-export VALUTATRADE_DATA_DIR="./test/data"
-export VALUTATRADE_USERS_FILE="users.json"
-export VALUTATRADE_PORTFOLIOS_FILE="portfolios.json"
-export VALUTATRADE_RATES_FILE="rates.json"
-export VALUTATRADE_RATES_TTL_SECONDS=300
-export VALUTATRADE_DEFAULT_BASE_CURRENCY="USD"
-export VALUTATRADE_LOG_DIR="./test/logs"
-export VALUTATRADE_ACTION_LOG_FILE="actions.log"
-export VALUTATRADE_PARSER_LOG_FILE="parser.log"
-```
-Одной коммандой:
-```bash
-export VALUTATRADE_DATA_DIR=./test/data \
-        VALUTATRADE_USERS_FILE=users.json \
-        VALUTATRADE_PORTFOLIOS_FILE=portfolios.json \
-        VALUTATRADE_RATES_FILE=rates.json \
-        VALUTATRADE_RATES_TTL_SECONDS=300 \
-        VALUTATRADE_DEFAULT_BASE_CURRENCY=USD \
-        VALUTATRADE_LOG_DIR=./test/logs \
-        VALUTATRADE_ACTION_LOG_FILE=actions.log \
-        VALUTATRADE_PARSER_LOG_FILE=parser.log
-```
-
-Файлы строятся как `<директория>/<имя файла>`. Все каталоги создаются автоматически.
-Parser Service использует те же пути: кеш `rates.json` и история `exchange_rates.json`
-окажутся в `VALUTATRADE_DATA_DIR`.
-
-После установки переменных окружения CLI работает так же, как при запуске из исходников.
-
-## Asciinema демонстрация
-
-[![asciinema installation demo](https://<some_url>.svg)](https://<some_url>>)
 
 ## Лицензия
 
