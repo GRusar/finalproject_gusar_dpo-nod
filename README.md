@@ -49,12 +49,19 @@ poetry run project   # запуск CLI
 ```
 ### Установка как wheel
 
-После `make package-install` (установки как wheel) нужно указать путь к pyproject с секцией `[tool.valutatrade]` (см. [конфигурация](#конфигурация-toolvalutatrade)) в переменной окружения `VALUTATRADE_PYPROJECT_PATH`
+При установке как wheel `make package-install`
+Поиск `pyproject.toml` с секцией `[tool.valutatrade]` происходит по цепочке:
+Текущая директория -> переменная окружения `VALUTATRADE_PYPROJECT_PATH`
+
+(если запускать из дирректории не содержащей `pyproject.toml` то нужно указать путь к файлу в переменной окружения `VALUTATRADE_PYPROJECT_PATH`)
 
 ```bash
 export VALUTATRADE_PYPROJECT_PATH=/path/to/pyproject.toml
 # можно запускать
 project
+
+# или
+VALUTATRADE_PYPROJECT_PATH=/path/to/pyproject.toml project
 ```
 
 ## Работа с CLI

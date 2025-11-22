@@ -42,11 +42,6 @@ class SettingsLoader(metaclass=SingletonMeta):
         valutatrade_section = data.get("tool", {}).get("valutatrade", {})
         if data and not valutatrade_section:
             raise RuntimeError("Секция [tool.valutatrade] отсутствует в pyproject.toml")
-        if not data:
-            raise RuntimeError(
-                "pyproject.toml не найден. ",
-                "Укажите путь через VALUTATRADE_PYPROJECT_PATH",
-            )
 
         config: Dict[str, Any] = {}
         for raw_key, value in valutatrade_section.items():
@@ -79,13 +74,26 @@ class SettingsLoader(metaclass=SingletonMeta):
         self._config = config
 
     def _read_pyproject(self) -> Dict[str, Any]:
-        target_path = PYPROJECT_PATH
-        if not target_path.exists():
-            env_override = os.getenv(ENV_PYPROJECT_PATH)
-            if not env_override:
-                return {}
-            target_path = Path(env_override).expanduser()
-        if not target_path.exists():
-            return {}
+        """
+        Читает pyproject.toml из:
+        - корня проекта
+        - текущей директории
+        - пути из переменной окружения VALUTATRADE_PYPROJECT_PATH
+        """
+        candidates = [
+            PYPROJECT_PATH,
+            Path.cwd() / "pyproject.toml",
+        ]
+        env_override = os.getenv(ENV_PYPROJECT_PATH)
+        if env_override:
+            candidates.append(Path(env_override).expanduser())
+
+        target_path = next((path for path in candidates if path.exists()), None)
+        if target_path is None:
+            raise RuntimeError(
+                "pyproject.toml не найден. ",
+                "Укажите путь через VALUTATRADE_PYPROJECT_PATH",
+            )
+
         with target_path.open("rb") as file:
             return tomllib.load(file)
