@@ -3,12 +3,15 @@
 COMMANDS: dict[str, str] = {
     "register --username <имя> --password <пароль>": "Регистрация пользователя",
     "login --username <имя> --password <пароль>": "Вход в систему",
-    "show-portfolio [--base USD]": "Показать портфель",
+    "show-portfolio [--base BASE]": "Показать портфель",
     "buy --currency <код> --amount <число>": "Купить валюту",
     "sell --currency <код> --amount <число>": "Продать валюту",
     "get-rate --from <код> --to <код>": "Получить курс",
     "update-rates [--source coingecko|exchangerate]": "Обновить кеш курсов",
-    "show-rates [--currency X --top N --base USD]": "Показать сохранённые курсы",
+    "show-rates [--currency X --top N --base BASE]": "Показать сохранённые курсы",
+    "schedule-update [--interval SEC --source SRC]": (
+        "Периодически обновлять курсы (блокирует CLI)"
+    ),
     "exit": "Выход из CLI",
 }
 

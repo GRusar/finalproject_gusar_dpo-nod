@@ -12,12 +12,13 @@ from valutatrade_hub.core.exceptions import (
     CurrencyNotFoundError,
     InsufficientFundsError,
 )
-from valutatrade_hub.infra.settings import SettingsLoader
+from valutatrade_hub.infra.settings import settings
 from valutatrade_hub.parser_service.api_clients import (
     coin_gecko_client,
     exchange_rate_client,
 )
 from valutatrade_hub.parser_service.config import parser_config
+from valutatrade_hub.parser_service.scheduler import run_scheduler
 from valutatrade_hub.parser_service.storage import rates_storage
 from valutatrade_hub.parser_service.updater import RatesUpdater
 
@@ -46,7 +47,6 @@ def _print_error(error: Exception) -> None:
 
 
 def update_rates_command(source: str | None) -> None:
-    settings = SettingsLoader()
     client_map = {
         "coingecko": coin_gecko_client,
         "exchangerate": exchange_rate_client,
@@ -155,6 +155,23 @@ def show_rates_command(
         )
 
 
+def schedule_update_command(interval: int, source: str | None) -> None:
+    """Периодически обновляет курсы (блокирует выполнение, остановка Ctrl+C)."""
+    print(
+        "Запуск планировщика обновления курсов. "
+        f"Интервал: {interval} сек. "
+        f"Источники: {source or 'all'}. "
+        "Для остановки нажмите Ctrl+C.",
+    )
+    try:
+        run_scheduler(
+            interval_seconds=interval,
+            active_sources=[source] if source else None,
+        )
+    except KeyboardInterrupt:
+        pass
+
+
 def register(username: str, password: str) -> None:
     """Обработчик команды register."""
     try:
@@ -184,16 +201,17 @@ def login(username: str, password: str) -> None:
     print(f"Вы вошли как '{result['username']}' (id={result['user_id']})")
 
 
-def show_portfolio(base_currency: str = "USD") -> None:
+def show_portfolio(base_currency: str | None = None) -> None:
     """Обработчик команды show-portfolio."""
     if not CURRENT_SESSION.get("user_id"):
         print("Сначала выполните login")
         return
 
+    resolved_base = base_currency or settings.get("DEFAULT_BASE_CURRENCY", "USD")
     try:
         report = usecases.show_portfolio(
             user_id=CURRENT_SESSION["user_id"],
-            base_currency=base_currency,
+            base_currency=resolved_base,
         )
     except HANDLED_ERRORS as error:
         _print_error(error)
@@ -240,13 +258,14 @@ def buy(currency_code: str, amount: float) -> None:
     purchase_amount = result["amount"]
     previous = result["previous_balance"]
     new_balance = result["new_balance"]
-    rate = result["rate_to_usd"]
-    estimated_value = result["estimated_value_usd"]
+    base_currency = result.get("base_currency", "USD")
+    rate_base = result.get("rate_to_base")
+    estimated_value = result.get("estimated_value_base")
 
-    if rate is not None:
+    if rate_base is not None:
         print(
             f"Покупка выполнена: {purchase_amount:.4f} {code} "
-            f"по курсу {rate:,.2f} USD/{code}",
+            f"по курсу {rate_base:,.2f} {base_currency}/{code}",
         )
     else:
         print(
@@ -259,7 +278,9 @@ def buy(currency_code: str, amount: float) -> None:
     )
     print(changes_line)
     if estimated_value is not None:
-        print(f"Оценочная стоимость покупки: {estimated_value:,.2f} USD")
+        print(
+            f"Оценочная стоимость покупки: {estimated_value:,.2f} {base_currency}",
+        )
 
 
 def sell(currency_code: str, amount: float) -> None:
@@ -282,13 +303,14 @@ def sell(currency_code: str, amount: float) -> None:
     sell_amount = result["amount"]
     previous = result["previous_balance"]
     new_balance = result["new_balance"]
-    rate = result["rate_to_usd"]
-    estimated_value = result["estimated_value_usd"]
+    base_currency = result.get("base_currency", "USD")
+    rate_base = result.get("rate_to_base")
+    estimated_value = result.get("estimated_value_base")
 
-    if rate is not None:
+    if rate_base is not None:
         print(
             f"Продажа выполнена: {sell_amount:.4f} {code} "
-            f"по курсу {rate:,.2f} USD/{code}",
+            f"по курсу {rate_base:,.2f} {base_currency}/{code}",
         )
     else:
         print(
@@ -301,7 +323,7 @@ def sell(currency_code: str, amount: float) -> None:
     )
     print(changes_line)
     if estimated_value is not None:
-        print(f"Оценочная выручка: {estimated_value:,.2f} USD")
+        print(f"Оценочная выручка: {estimated_value:,.2f} {base_currency}")
 
 
 def get_rate(from_code: str, to_code: str) -> None:
@@ -331,6 +353,25 @@ def get_rate(from_code: str, to_code: str) -> None:
         print(f"Внимание: {warning}")
 
 
+def add_usd_to_balance(amount: float) -> None:
+    """Тестовая команда для пополнения базового кошелька текущего пользователя."""
+    if not CURRENT_SESSION.get("user_id"):
+        print("Сначала выполните login")
+        return
+    try:
+        result = usecases.add_base_balance(
+            user_id=CURRENT_SESSION["user_id"],
+            amount=amount,
+        )
+    except HANDLED_ERRORS as error:
+        _print_error(error)
+        return
+    print(
+        f"Базовый кошелёк пополнен на {result['added']:.2f} "
+        f"{result['base_currency']}. Новый баланс: {result['new_balance']:.2f}",
+    )
+
+
 def _dispatch_command(args) -> None:
     """Вызвать функцию-обработчик в зависимости от команды."""
     match args.command:
@@ -350,6 +391,10 @@ def _dispatch_command(args) -> None:
             update_rates_command(args.source)
         case "show-rates":
             show_rates_command(args.currency, args.top, args.base)
+        case "schedule-update":
+            schedule_update_command(args.interval, args.source)
+        case "add-usd-to-balance":
+            add_usd_to_balance(args.amount)
         case _:
             print(f"Неизвестная команда: {args.command}")
 

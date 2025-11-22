@@ -175,7 +175,7 @@ class Portfolio:
 
     def get_total_value(
         self,
-        base_currency: str = "USD",
+        base_currency: str,
         exchange_rates: Optional[dict[str, float]] = None,
     ) -> float:
         """Возвращает общую стоимость всех валют пользователя в базовой валюте."""

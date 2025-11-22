@@ -97,3 +97,7 @@ class SettingsLoader(metaclass=SingletonMeta):
 
         with target_path.open("rb") as file:
             return tomllib.load(file)
+
+
+# Единый экземпляр настроек, используем его по всему приложению
+settings = SettingsLoader()

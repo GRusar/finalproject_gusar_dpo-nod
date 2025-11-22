@@ -72,35 +72,14 @@ VALUTATRADE_PYPROJECT_PATH=/path/to/pyproject.toml project
 | --- | --- |
 | `register --username <имя> --password <пароль>` | регистрация |
 | `login --username <имя> --password <пароль>` | вход |
-| `show-portfolio [--base USD]` | показать портфель |
+| `show-portfolio [--base BASE]` | показать портфель |
 | `buy --currency <код> --amount <число>` | покупка валюты |
 | `sell --currency <код> --amount <число>` | продажа |
 | `get-rate --from <код> --to <код>` | курс одной валюты к другой |
 | `update-rates [--source coingecko|exchangerate]` | обновление кеша курсов |
-| `show-rates [--currency CODE] [--base USD] [--top N]` | просмотр кеша |
+| `show-rates [--currency CODE] [--base BASE] [--top N]` | просмотр кеша |
+| `schedule-update [--interval N --source SRC]` | периодическое обновление кеша (Ctrl+C для остановки) |
 | `exit` | завершить CLI |
-
-Пример сценария:
-
-```bash
-$ poetry run project register --username alice --password secret
-$ poetry run project login --username alice --password secret
-$ poetry run project buy --currency BTC --amount 0.05
-$ poetry run project show-portfolio --base USD
-$ poetry run project get-rate --from BTC --to EUR
-```
-
-Интерактивный режим:
-
-```bash
-$ poetry run project
-ValutaTrade Hub CLI.
-> register --username bob --password 1234
-> login --username bob --password 1234
-> buy --currency ETH --amount 0.5
-> show-portfolio
-> exit
-```
 
 Ошибки печатаются по-русски (например, «Недостаточно средств», «Неизвестная валюта»), поддерживается вывод подсказок `команда -h`.
 
@@ -116,11 +95,17 @@ ValutaTrade Hub CLI.
 - `valutatrade_hub/cli/command_parser.py` — CLI использует `argparse` с русифицированными ошибками, автогенерируемым help и uniform командами.
 - `valutatrade_hub/parser_service/config.py` — Parser Service проверяет переменную окружения `EXCHANGERATE_API_KEY` и, если её нет, пытается прочитать ключ из `.env`; при отсутствии ключа явно сообщает об ошибке. При загрузке ключ очищается от пробелов, чтобы избежать случайных опечаток.
 - Конфигурация логирования вынесена в `logging_config.py`: действия пользователей (`log_action`) и Parser Service пишут в отдельные файлы с ротацией, формат русскоязычный.
+- Конвертация курсов всегда идёт через USD, но вывод и расчёты в бизнес-операциях показываются в базовой валюте из `pyproject.toml` (`DEFAULT_BASE_CURRENCY`).
+- Репозиторий `valutatrade_hub/infra/repository.py` инкапсулирует загрузку/сохранение портфелей и отдаёт модели `Portfolio`/`Wallet`/`User`, так что usecases работают с моделями без прямой правки JSON.
+- Планировщик `valutatrade_hub/parser_service/scheduler.py` умеет периодически запускать обновление курсов, выводит статус в консоль и завершается по Ctrl+C.
+- Тестовая CLI-команда `add-usd-to-balance --amount` пополняет базовый кошелёк текущего пользователя через usecase (удобно для демонстраций/тестов).
 
 ## Пояснение реализации Singleton
 
 - `valutatrade_hub/infra/settings.py` — `SettingsLoader` реализован через метакласс `SingletonMeta`: логика «один экземпляр» вынесена отдельно и может переиспользоваться (например, для `DatabaseManager`). Это гарантирует единственный объект вне зависимости от импортов, даёт единый источник конфигурации и позволяет безболезненно переиспользовать метакласс в других инфраструктурных компонентах.
 
+## Asciinema
+[![asciinema crud demo](https://asciinema.org/a/Qia1nmsZAIgNFKRAb1wsqHZG2.svg)](https://asciinema.org/a/Qia1nmsZAIgNFKRAb1wsqHZG2)
 
 ## Лицензия
 

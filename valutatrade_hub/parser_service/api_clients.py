@@ -130,11 +130,12 @@ class ExchangeRateApiClient(BaseApiClient):
         api_timestamp = payload.get("time_last_update_utc")
         rates: Dict[str, Dict[str, Any]] = {}
         for code in self.config.FIAT_CURRENCIES:
-            rate = payload.get("conversion_rates", {}).get(code)
-            if rate is None:
+            base_to_code = payload.get("conversion_rates", {}).get(code)
+            if base_to_code is None or base_to_code == 0:
                 continue
             rates[f"{code}_{self.config.BASE_CURRENCY}"] = {
-                "rate": float(rate),
+                # API отдаёт курс BASE→CODE, для CODE→BASE инвертируем
+                "rate": float(1 / base_to_code),
                 "meta": {
                     "raw_id": code,
                     "request_ms": round(elapsed_ms, 2),

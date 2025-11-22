@@ -82,7 +82,7 @@ def build_parser() -> ArgumentParser:
         prog="ValutaTradeHub show-portfolio",
     )
     _add_help_argument(show_parser)
-    show_parser.add_argument("--base", default="USD")
+    show_parser.add_argument("--base")
 
     buy_parser = subparsers.add_parser(
         "buy",
@@ -144,5 +144,38 @@ def build_parser() -> ArgumentParser:
         help="Показать N самых дорогих криптовалют",
     )
     show_rates_parser.add_argument("--base", help="Базовая валюта для отображения")
+
+    schedule_parser = subparsers.add_parser(
+        "schedule-update",
+        help="Периодически обновлять курсы (блокирует CLI, остановка Ctrl+C)",
+        add_help=False,
+        prog="ValutaTradeHub schedule-update",
+    )
+    _add_help_argument(schedule_parser)
+    schedule_parser.add_argument(
+        "--interval",
+        type=int,
+        default=300,
+        help="Интервал между обновлениями в секундах (по умолчанию 300)",
+    )
+    schedule_parser.add_argument(
+        "--source",
+        choices=["coingecko", "exchangerate", "exchangerate-api"],
+        help="Обновлять только выбранный источник",
+    )
+
+    add_usd_parser = subparsers.add_parser(
+        "add-usd-to-balance",
+        help="(тестовая) Пополнить базовый кошелёк залогиненного пользователя в USD",
+        add_help=False,
+        prog="ValutaTradeHub add-usd-to-balance",
+    )
+    _add_help_argument(add_usd_parser)
+    add_usd_parser.add_argument(
+        "--amount",
+        required=True,
+        type=float,
+        help="Сумма в базовой валюте (USD) для пополнения",
+    )
 
     return parser

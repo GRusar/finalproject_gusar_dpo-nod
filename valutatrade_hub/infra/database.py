@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
-from valutatrade_hub.infra.settings import SettingsLoader, SingletonMeta
+from valutatrade_hub.infra.settings import SingletonMeta, settings
 
 
 class DatabaseManager(metaclass=SingletonMeta):
@@ -15,7 +15,6 @@ class DatabaseManager(metaclass=SingletonMeta):
     def __init__(self) -> None:
         if hasattr(self, "_paths"):
             return
-        settings = SettingsLoader()
         self._paths: Dict[str, Path] = {
             "users": Path(settings.get("USERS_FILE")),
             "portfolios": Path(settings.get("PORTFOLIOS_FILE")),
