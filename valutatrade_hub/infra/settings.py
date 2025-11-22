@@ -40,8 +40,13 @@ class SettingsLoader(metaclass=SingletonMeta):
         """Перечитывает pyproject и обновляет словарь настроек."""
         data = self._read_pyproject()
         valutatrade_section = data.get("tool", {}).get("valutatrade", {})
-        if not valutatrade_section:
+        if data and not valutatrade_section:
             raise RuntimeError("Секция [tool.valutatrade] отсутствует в pyproject.toml")
+        if not data:
+            raise RuntimeError(
+                "pyproject.toml не найден. ",
+                "Укажите путь через VALUTATRADE_PYPROJECT_PATH",
+            )
 
         config: Dict[str, Any] = {}
         for raw_key, value in valutatrade_section.items():
@@ -58,7 +63,6 @@ class SettingsLoader(metaclass=SingletonMeta):
                 config[key] = value
 
         required_keys = [
-            "DATA_DIR",
             "USERS_FILE",
             "PORTFOLIOS_FILE",
             "RATES_FILE",
@@ -79,10 +83,8 @@ class SettingsLoader(metaclass=SingletonMeta):
         if not target_path.exists():
             env_override = os.getenv(ENV_PYPROJECT_PATH)
             if not env_override:
-                print("pyproject.toml не найден и переменная окружения VALUTATRADE_PYPROJECT_PATH не установлена")
                 return {}
             target_path = Path(env_override).expanduser()
-            print(f"pyproject.toml не найден по пути {PYPROJECT_PATH}, пробуем {target_path}")
         if not target_path.exists():
             return {}
         with target_path.open("rb") as file:

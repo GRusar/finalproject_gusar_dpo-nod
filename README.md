@@ -42,7 +42,6 @@ project
 
 `SettingsLoader` читает обязательные ключи из `pyproject.toml`:
 
-- `data_dir` — базовая директория хранилища;
 - `users_file`, `portfolios_file`, `rates_file` — JSON-файлы данных;
 - `rates_ttl_seconds` — TTL кеша курсов;
 - `default_base_currency` — валюта пересчёта по умолчанию;
