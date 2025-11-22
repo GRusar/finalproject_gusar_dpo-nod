@@ -12,7 +12,7 @@ from valutatrade_hub.core.exceptions import (
     CurrencyNotFoundError,
     InsufficientFundsError,
 )
-from valutatrade_hub.infra.settings import SettingsLoader
+from valutatrade_hub.infra.settings import settings
 from valutatrade_hub.parser_service.api_clients import (
     coin_gecko_client,
     exchange_rate_client,
@@ -46,7 +46,6 @@ def _print_error(error: Exception) -> None:
 
 
 def update_rates_command(source: str | None) -> None:
-    settings = SettingsLoader()
     client_map = {
         "coingecko": coin_gecko_client,
         "exchangerate": exchange_rate_client,
@@ -184,16 +183,17 @@ def login(username: str, password: str) -> None:
     print(f"Вы вошли как '{result['username']}' (id={result['user_id']})")
 
 
-def show_portfolio(base_currency: str = "USD") -> None:
+def show_portfolio(base_currency: str | None = None) -> None:
     """Обработчик команды show-portfolio."""
     if not CURRENT_SESSION.get("user_id"):
         print("Сначала выполните login")
         return
 
+    resolved_base = base_currency or settings.get("DEFAULT_BASE_CURRENCY", "USD")
     try:
         report = usecases.show_portfolio(
             user_id=CURRENT_SESSION["user_id"],
-            base_currency=base_currency,
+            base_currency=resolved_base,
         )
     except HANDLED_ERRORS as error:
         _print_error(error)

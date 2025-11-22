@@ -7,7 +7,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional
 
-from valutatrade_hub.infra.settings import SettingsLoader
+from valutatrade_hub.infra.settings import settings
 
 _LOGGER: Optional[logging.Logger] = None
 _PARSER_LOGGER: Optional[logging.Logger] = None
@@ -29,7 +29,6 @@ def get_action_logger() -> logging.Logger:
     if _LOGGER is not None:
         return _LOGGER
 
-    settings = SettingsLoader()
     log_path = Path(settings.get("LOG_PATH"))
     log_file = _ensure_log_path(log_path)
 
@@ -56,7 +55,6 @@ def get_parser_logger() -> logging.Logger:
     if _PARSER_LOGGER is not None:
         return _PARSER_LOGGER
 
-    settings = SettingsLoader()
     log_path = Path(settings.get("PARSER_LOG_PATH"))
     log_file = _ensure_log_path(log_path)
 

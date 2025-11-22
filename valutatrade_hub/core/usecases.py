@@ -11,9 +11,8 @@ from valutatrade_hub.core.models import User
 from valutatrade_hub.core.utils import parse_iso_datetime
 from valutatrade_hub.decorators import log_action
 from valutatrade_hub.infra.database import DatabaseManager
-from valutatrade_hub.infra.settings import SettingsLoader
+from valutatrade_hub.infra.settings import settings
 
-settings = SettingsLoader()
 db_manager = DatabaseManager()
 
 

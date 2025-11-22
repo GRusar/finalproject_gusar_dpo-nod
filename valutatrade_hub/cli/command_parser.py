@@ -82,7 +82,7 @@ def build_parser() -> ArgumentParser:
         prog="ValutaTradeHub show-portfolio",
     )
     _add_help_argument(show_parser)
-    show_parser.add_argument("--base", default="USD")
+    show_parser.add_argument("--base")
 
     buy_parser = subparsers.add_parser(
         "buy",
