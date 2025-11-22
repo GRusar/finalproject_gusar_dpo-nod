@@ -7,13 +7,15 @@ from typing import Any, Dict, Optional
 
 from valutatrade_hub.core.currencies import get_currency
 from valutatrade_hub.core.exceptions import ApiRequestError
-from valutatrade_hub.core.models import Portfolio, User, Wallet
+from valutatrade_hub.core.models import User
 from valutatrade_hub.core.utils import parse_iso_datetime
 from valutatrade_hub.decorators import log_action
 from valutatrade_hub.infra.database import DatabaseManager
+from valutatrade_hub.infra.repository import PortfolioRepository
 from valutatrade_hub.infra.settings import settings
 
 db_manager = DatabaseManager()
+portfolio_repo = PortfolioRepository()
 
 
 def _extract_value(args: tuple, kwargs: dict, key: str, index: int) -> Any:
@@ -95,59 +97,6 @@ def _load_exchange_rates() -> Dict[str, float]:
     if len(rates) <= 1:
         raise ValueError("В кеше отсутствуют данные о курсах")
     return rates
-
-
-def _load_user_by_id(user_id: int) -> User:
-    users_data = db_manager.read("users", default=[])
-    if not isinstance(users_data, list):
-        raise ValueError("Некорректный формат файла users.json")
-    record = next((user for user in users_data if user.get("user_id") == user_id), None)
-    if record is None:
-        raise ValueError("Пользователь не найден")
-    return User(
-        user_id=record["user_id"],
-        username=record["username"],
-        hashed_password=record.get("hashed_password"),
-        salt=record.get("salt"),
-        registration_date=record.get("registration_date"),
-    )
-
-
-def _load_portfolio_for_user(
-    user_id: int,
-) -> tuple[Portfolio, dict[str, Any], list[dict]]:
-    portfolios = db_manager.read("portfolios", default=[])
-    if not isinstance(portfolios, list):
-        raise ValueError("Некорректный формат файла portfolios.json")
-    record = next((p for p in portfolios if p.get("user_id") == user_id), None)
-    if record is None:
-        raise ValueError("Портфель пользователя не найден")
-    wallets_raw = record.get("wallets", {})
-    if not isinstance(wallets_raw, dict):
-        raise ValueError("Некорректный формат кошельков")
-
-    wallets: dict[str, Wallet] = {}
-    for code, info in wallets_raw.items():
-        currency_code = (code or "").strip().upper()
-        if not currency_code:
-            continue
-        balance = float(info.get("balance", 0.0))
-        wallets[currency_code] = Wallet(currency_code, initial_balance=balance)
-
-    user = _load_user_by_id(user_id)
-    portfolio = Portfolio(user, wallets)
-    return portfolio, record, portfolios
-
-
-def _save_portfolio(
-    portfolio: Portfolio,
-    portfolio_record: dict[str, Any],
-    portfolios: list[dict],
-) -> None:
-    portfolio_record["wallets"] = {
-        code: wallet.get_balance_info() for code, wallet in portfolio.wallets.items()
-    }
-    db_manager.write("portfolios", portfolios)
 
 
 def _calc_base_conversion(
@@ -262,7 +211,7 @@ def show_portfolio(user_id: int, base_currency: str | None = None) -> dict[str, 
     """Возвращает состояние портфеля и пересчитывает суммы в базовую валюту."""
     default_base = settings.get("DEFAULT_BASE_CURRENCY", "USD")
     normalized_base = (base_currency or default_base).strip().upper()
-    portfolio, _, _ = _load_portfolio_for_user(user_id)
+    portfolio = portfolio_repo.load(user_id)
     exchange_rates = _load_exchange_rates()
     if normalized_base not in exchange_rates:
         raise ValueError(f"Неизвестная базовая валюта '{normalized_base}'")
@@ -316,7 +265,7 @@ def buy_currency(user_id: int, currency_code: str, amount: float) -> dict[str, A
     currency = get_currency(currency_code)
     normalized_code = currency.code
 
-    portfolio, portfolio_record, portfolios = _load_portfolio_for_user(user_id)
+    portfolio = portfolio_repo.load(user_id)
     wallet = portfolio.get_wallet(normalized_code)
     if wallet is None:
         wallet = portfolio.add_currency(normalized_code)
@@ -325,7 +274,7 @@ def buy_currency(user_id: int, currency_code: str, amount: float) -> dict[str, A
     wallet.deposit(amount_value)
     new_balance = wallet.balance
 
-    _save_portfolio(portfolio, portfolio_record, portfolios)
+    portfolio_repo.save(portfolio)
 
     exchange_rates = _load_exchange_rates()
     default_base = str(settings.get("DEFAULT_BASE_CURRENCY", "USD")).upper()
@@ -366,7 +315,7 @@ def sell_currency(user_id: int, currency_code: str, amount: float) -> dict[str, 
     currency = get_currency(currency_code)
     normalized_code = currency.code
 
-    portfolio, portfolio_record, portfolios = _load_portfolio_for_user(user_id)
+    portfolio = portfolio_repo.load(user_id)
     wallet = portfolio.get_wallet(normalized_code)
     if wallet is None:
         raise ValueError(f"У вас нет кошелька '{normalized_code}'. Добавьте валюту.")
@@ -374,7 +323,7 @@ def sell_currency(user_id: int, currency_code: str, amount: float) -> dict[str, 
     previous_balance = wallet.balance
     wallet.withdraw(amount_value)
     new_balance = wallet.balance
-    _save_portfolio(portfolio, portfolio_record, portfolios)
+    portfolio_repo.save(portfolio)
 
     exchange_rates = _load_exchange_rates()
     default_base = str(settings.get("DEFAULT_BASE_CURRENCY", "USD")).upper()
