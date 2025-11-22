@@ -8,8 +8,18 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "prettytable (>=3.16.0,<4.0.0)"
+    "prettytable (>=3.16.0,<4.0.0)",
+    "requests (>=2.32.5,<3.0.0)"
 ]
+
+[project.scripts]
+project = "main:main"
+
+[tool.poetry]
+ packages = [
+     { include = "valutatrade_hub" },
+     { include = "main.py" },
+ ]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -27,4 +37,13 @@ exclude = ["venv", ".venv", "dist", "__pycache__"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
-ignore = [] 
+ignore = []
+
+[tool.valutatrade]
+users_file = "data/users.json"
+portfolios_file = "data/portfolios.json"
+rates_file = "data/rates.json"
+rates_ttl_seconds = 300
+default_base_currency = "USD"
+log_path = "logs/actions.log"
+parser_log_path = "logs/parser.log"
