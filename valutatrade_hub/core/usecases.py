@@ -40,13 +40,16 @@ def _build_trade_context(
     }
     if result:
         context["currency"] = result.get("currency_code", context["currency"])
-        rate = result.get("rate_to_usd")
+        context["base"] = result.get("base_currency", context["base"])
+        rate = result.get("rate_to_base") or result.get("rate_to_usd")
         if rate is not None:
             context["rate"] = rate
         if verbose:
             context["balance_before"] = result.get("previous_balance")
             context["balance_after"] = result.get("new_balance")
-            if result.get("estimated_value_usd") is not None:
+            if result.get("estimated_value_base") is not None:
+                context["estimated_base"] = result["estimated_value_base"]
+            elif result.get("estimated_value_usd") is not None:
                 context["estimated_usd"] = result["estimated_value_usd"]
     return {k: v for k, v in context.items() if v is not None}
 
@@ -92,6 +95,31 @@ def _load_exchange_rates() -> Dict[str, float]:
     if len(rates) <= 1:
         raise ValueError("В кеше отсутствуют данные о курсах")
     return rates
+
+
+def _calc_base_conversion(
+    currency_code: str,
+    base_currency: str,
+    exchange_rates: Dict[str, float],
+    amount: float,
+) -> tuple[float | None, float | None, float | None, str]:
+    """
+    Возвращает (rate_to_usd, rate_to_base, estimated_in_base, normalized_base).
+    Конвертация всегда идёт через USD, поскольку exchange_rates хранятся к USD.
+    """
+    normalized_base = base_currency.upper()
+    rate_to_usd = exchange_rates.get(currency_code)
+    base_rate_usd = exchange_rates.get(normalized_base)
+    rate_to_base: float | None = None
+    estimated_value_base: float | None = None
+    if rate_to_usd is not None:
+        if normalized_base == "USD":
+            rate_to_base = rate_to_usd
+        elif base_rate_usd:
+            rate_to_base = rate_to_usd / base_rate_usd
+        if rate_to_base is not None:
+            estimated_value_base = amount * rate_to_base
+    return rate_to_usd, rate_to_base, estimated_value_base, normalized_base
 
 
 def _is_rates_fresh(rates_data: Dict[str, Any]) -> bool:
@@ -177,7 +205,7 @@ def login_user(username: str, password: str) -> dict[str, Any]:
     return {"user_id": user.user_id, "username": user.username}
 
 
-def show_portfolio(user_id: int, base_currency: str = "USD") -> dict[str, Any]:
+def show_portfolio(user_id: int, base_currency: str | None = None) -> dict[str, Any]:
     """Возвращает состояние портфеля и пересчитывает суммы в базовую валюту."""
     default_base = settings.get("DEFAULT_BASE_CURRENCY", "USD")
     normalized_base = (base_currency or default_base).strip().upper()
@@ -278,8 +306,15 @@ def buy_currency(user_id: int, currency_code: str, amount: float) -> dict[str, A
     db_manager.write("portfolios", portfolios)
 
     exchange_rates = _load_exchange_rates()
-    rate_to_usd = exchange_rates.get(normalized_code)
-    estimated_value = amount_value * rate_to_usd if rate_to_usd is not None else None
+    default_base = str(settings.get("DEFAULT_BASE_CURRENCY", "USD")).upper()
+    rate_to_usd, rate_to_base, estimated_value_base, normalized_base = (
+        _calc_base_conversion(
+            normalized_code,
+            default_base,
+            exchange_rates,
+            amount_value,
+        )
+    )
 
     return {
         "currency_code": normalized_code,
@@ -287,7 +322,9 @@ def buy_currency(user_id: int, currency_code: str, amount: float) -> dict[str, A
         "previous_balance": previous_balance,
         "new_balance": new_balance,
         "rate_to_usd": rate_to_usd,
-        "estimated_value_usd": estimated_value,
+        "rate_to_base": rate_to_base,
+        "estimated_value_base": estimated_value_base,
+        "base_currency": normalized_base,
     }
 
 
@@ -336,8 +373,15 @@ def sell_currency(user_id: int, currency_code: str, amount: float) -> dict[str, 
     db_manager.write("portfolios", portfolios)
 
     exchange_rates = _load_exchange_rates()
-    rate_to_usd = exchange_rates.get(normalized_code)
-    estimated_value = amount_value * rate_to_usd if rate_to_usd is not None else None
+    default_base = str(settings.get("DEFAULT_BASE_CURRENCY", "USD")).upper()
+    rate_to_usd, rate_to_base, estimated_value_base, normalized_base = (
+        _calc_base_conversion(
+            normalized_code,
+            default_base,
+            exchange_rates,
+            amount_value,
+        )
+    )
 
     return {
         "currency_code": normalized_code,
@@ -345,7 +389,9 @@ def sell_currency(user_id: int, currency_code: str, amount: float) -> dict[str, 
         "previous_balance": previous_balance,
         "new_balance": new_balance,
         "rate_to_usd": rate_to_usd,
-        "estimated_value_usd": estimated_value,
+        "rate_to_base": rate_to_base,
+        "estimated_value_base": estimated_value_base,
+        "base_currency": normalized_base,
     }
 
 

@@ -240,13 +240,14 @@ def buy(currency_code: str, amount: float) -> None:
     purchase_amount = result["amount"]
     previous = result["previous_balance"]
     new_balance = result["new_balance"]
-    rate = result["rate_to_usd"]
-    estimated_value = result["estimated_value_usd"]
+    base_currency = result.get("base_currency", "USD")
+    rate_base = result.get("rate_to_base")
+    estimated_value = result.get("estimated_value_base")
 
-    if rate is not None:
+    if rate_base is not None:
         print(
             f"Покупка выполнена: {purchase_amount:.4f} {code} "
-            f"по курсу {rate:,.2f} USD/{code}",
+            f"по курсу {rate_base:,.2f} {base_currency}/{code}",
         )
     else:
         print(
@@ -259,7 +260,9 @@ def buy(currency_code: str, amount: float) -> None:
     )
     print(changes_line)
     if estimated_value is not None:
-        print(f"Оценочная стоимость покупки: {estimated_value:,.2f} USD")
+        print(
+            f"Оценочная стоимость покупки: {estimated_value:,.2f} {base_currency}",
+        )
 
 
 def sell(currency_code: str, amount: float) -> None:
@@ -282,13 +285,14 @@ def sell(currency_code: str, amount: float) -> None:
     sell_amount = result["amount"]
     previous = result["previous_balance"]
     new_balance = result["new_balance"]
-    rate = result["rate_to_usd"]
-    estimated_value = result["estimated_value_usd"]
+    base_currency = result.get("base_currency", "USD")
+    rate_base = result.get("rate_to_base")
+    estimated_value = result.get("estimated_value_base")
 
-    if rate is not None:
+    if rate_base is not None:
         print(
             f"Продажа выполнена: {sell_amount:.4f} {code} "
-            f"по курсу {rate:,.2f} USD/{code}",
+            f"по курсу {rate_base:,.2f} {base_currency}/{code}",
         )
     else:
         print(
@@ -301,7 +305,7 @@ def sell(currency_code: str, amount: float) -> None:
     )
     print(changes_line)
     if estimated_value is not None:
-        print(f"Оценочная выручка: {estimated_value:,.2f} USD")
+        print(f"Оценочная выручка: {estimated_value:,.2f} {base_currency}")
 
 
 def get_rate(from_code: str, to_code: str) -> None:
