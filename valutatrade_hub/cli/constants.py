@@ -9,6 +9,9 @@ COMMANDS: dict[str, str] = {
     "get-rate --from <код> --to <код>": "Получить курс",
     "update-rates [--source coingecko|exchangerate]": "Обновить кеш курсов",
     "show-rates [--currency X --top N --base BASE]": "Показать сохранённые курсы",
+    "schedule-update [--interval SEC --source SRC]": (
+        "Периодически обновлять курсы (блокирует CLI)"
+    ),
     "exit": "Выход из CLI",
 }
 

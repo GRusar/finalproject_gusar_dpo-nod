@@ -18,6 +18,7 @@ from valutatrade_hub.parser_service.api_clients import (
     exchange_rate_client,
 )
 from valutatrade_hub.parser_service.config import parser_config
+from valutatrade_hub.parser_service.scheduler import run_scheduler
 from valutatrade_hub.parser_service.storage import rates_storage
 from valutatrade_hub.parser_service.updater import RatesUpdater
 
@@ -152,6 +153,23 @@ def show_rates_command(
             f"- {entry['pair']}: {entry['rate']:.6f} "
             f"(source: {entry['source']}, updated_at={entry['updated_at']})",
         )
+
+
+def schedule_update_command(interval: int, source: str | None) -> None:
+    """Периодически обновляет курсы (блокирует выполнение, остановка Ctrl+C)."""
+    print(
+        "Запуск планировщика обновления курсов. "
+        f"Интервал: {interval} сек. "
+        f"Источники: {source or 'all'}. "
+        "Для остановки нажмите Ctrl+C.",
+    )
+    try:
+        run_scheduler(
+            interval_seconds=interval,
+            active_sources=[source] if source else None,
+        )
+    except KeyboardInterrupt:
+        pass
 
 
 def register(username: str, password: str) -> None:
@@ -354,6 +372,8 @@ def _dispatch_command(args) -> None:
             update_rates_command(args.source)
         case "show-rates":
             show_rates_command(args.currency, args.top, args.base)
+        case "schedule-update":
+            schedule_update_command(args.interval, args.source)
         case _:
             print(f"Неизвестная команда: {args.command}")
 
