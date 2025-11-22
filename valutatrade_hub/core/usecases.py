@@ -444,3 +444,26 @@ def get_exchange_rate(from_code: str, to_code: str) -> dict[str, Any]:
     if warning:
         result["warning"] = warning
     return result
+
+
+def add_base_balance(user_id: int, amount: float) -> dict[str, Any]:
+    """Тестовая функция для пополнения базового кошелька."""
+    try:
+        amount_value = float(amount)
+    except (TypeError, ValueError):
+        raise ValueError("'amount' должен быть положительным числом") from None
+    if amount_value <= 0:
+        raise ValueError("'amount' должен быть положительным числом")
+
+    portfolio = portfolio_repo.load(user_id)
+    base_currency = str(settings.get("DEFAULT_BASE_CURRENCY", "USD")).upper()
+    wallet = portfolio.get_wallet(base_currency)
+    if wallet is None:
+        wallet = portfolio.add_currency(base_currency)
+    wallet.deposit(amount_value)
+    portfolio_repo.save(portfolio)
+    return {
+        "base_currency": base_currency,
+        "added": amount_value,
+        "new_balance": wallet.balance,
+    }

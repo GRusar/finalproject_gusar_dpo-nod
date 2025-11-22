@@ -164,4 +164,18 @@ def build_parser() -> ArgumentParser:
         help="Обновлять только выбранный источник",
     )
 
+    add_usd_parser = subparsers.add_parser(
+        "add-usd-to-balance",
+        help="(тестовая) Пополнить базовый кошелёк залогиненного пользователя в USD",
+        add_help=False,
+        prog="ValutaTradeHub add-usd-to-balance",
+    )
+    _add_help_argument(add_usd_parser)
+    add_usd_parser.add_argument(
+        "--amount",
+        required=True,
+        type=float,
+        help="Сумма в базовой валюте (USD) для пополнения",
+    )
+
     return parser

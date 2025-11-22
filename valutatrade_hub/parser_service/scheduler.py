@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Iterable, Sequence
+from typing import Iterable
 
 from valutatrade_hub.core.exceptions import ApiRequestError
 from valutatrade_hub.logging_config import get_parser_logger

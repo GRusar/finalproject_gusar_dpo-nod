@@ -353,6 +353,25 @@ def get_rate(from_code: str, to_code: str) -> None:
         print(f"Внимание: {warning}")
 
 
+def add_usd_to_balance(amount: float) -> None:
+    """Тестовая команда для пополнения базового кошелька текущего пользователя."""
+    if not CURRENT_SESSION.get("user_id"):
+        print("Сначала выполните login")
+        return
+    try:
+        result = usecases.add_base_balance(
+            user_id=CURRENT_SESSION["user_id"],
+            amount=amount,
+        )
+    except HANDLED_ERRORS as error:
+        _print_error(error)
+        return
+    print(
+        f"Базовый кошелёк пополнен на {result['added']:.2f} "
+        f"{result['base_currency']}. Новый баланс: {result['new_balance']:.2f}",
+    )
+
+
 def _dispatch_command(args) -> None:
     """Вызвать функцию-обработчик в зависимости от команды."""
     match args.command:
@@ -374,6 +393,8 @@ def _dispatch_command(args) -> None:
             show_rates_command(args.currency, args.top, args.base)
         case "schedule-update":
             schedule_update_command(args.interval, args.source)
+        case "add-usd-to-balance":
+            add_usd_to_balance(args.amount)
         case _:
             print(f"Неизвестная команда: {args.command}")
 
